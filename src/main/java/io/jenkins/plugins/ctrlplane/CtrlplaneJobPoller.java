@@ -147,36 +147,29 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
     }
 
     private void processJob(Map<String, Object> jobMap, JobProcessingStats stats) {
-        // Extract and validate job ID
         JobInfo jobInfo = extractJobInfo(jobMap);
         if (jobInfo == null) {
             stats.skipped++;
             return;
         }
 
-        // Skip if already triggered
         if (triggeredJobIds.containsKey(jobInfo.jobId)) {
             LOGGER.debug("Skipping already triggered Ctrlplane job ID: {}", jobInfo.jobId);
             stats.skipped++;
             return;
         }
 
-        // Update status to running
         updateJobStatus(jobInfo, "RUNNING", "JenkinsPoller");
-
-        // Trigger Jenkins job
         triggerJenkinsJob(jobInfo, stats);
     }
 
     private JobInfo extractJobInfo(Map<String, Object> jobMap) {
-        // Extract job ID
         Object idObj = jobMap.get("id");
         if (!(idObj instanceof String jobId)) {
             LOGGER.warn("Skipping job: Missing or invalid 'id' field. Job Data: {}", jobMap);
             return null;
         }
 
-        // Parse UUID
         UUID jobUUID;
         try {
             jobUUID = UUID.fromString(jobId);
@@ -220,8 +213,7 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
             return;
         }
 
-        // Trigger build
-        StringParameterValue jobIdParam = new StringParameterValue("CTRLPLANE_JOB_ID", jobInfo.jobId);
+        StringParameterValue jobIdParam = new StringParameterValue("JOB_ID", jobInfo.jobId);
         ParametersAction paramsAction = new ParametersAction(jobIdParam);
 
         Object future = jenkinsJob.scheduleBuild2(0, paramsAction);
