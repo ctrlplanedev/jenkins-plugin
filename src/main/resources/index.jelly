@@ -1,4 +1,8 @@
 <?jelly escape-by-default='true'?>
 <div>
-    TODO
+    This plugin integrates Jenkins with Ctrlplane for triggering and monitoring jobs.
+    <p>
+        Configuration for this plugin is managed globally.
+        and find the <b>Ctrlplane Agent Plugin</b> section.
+    </p>
 </div>
