@@ -36,6 +36,7 @@
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
     <!-- <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo> -->
     <gitHubRepo>ctrlplanedev/jenkins-agent-plugin</gitHubRepo>
+    <spotless.check.skip>false</spotless.check.skip>
   </properties>
 
   <dependencyManagement>
