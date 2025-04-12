@@ -53,197 +53,248 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
     protected void execute(TaskListener listener) {
         LOGGER.debug("Starting Ctrlplane job polling cycle.");
 
-        // 1. Get Global Configuration
+        // Get and validate configuration
+        CtrlplaneConfig config = getAndValidateConfig();
+        if (config == null) {
+            return;
+        }
+
+        // Initialize and register agent
+        if (!initializeAndRegisterAgent(config)) {
+            return;
+        }
+
+        // Poll for jobs
+        List<Map<String, Object>> pendingJobs = pollForJobs();
+        if (pendingJobs == null || pendingJobs.isEmpty()) {
+            return;
+        }
+
+        // Process jobs
+        processJobs(pendingJobs);
+    }
+
+    private CtrlplaneConfig getAndValidateConfig() {
         CtrlplaneGlobalConfiguration config = CtrlplaneGlobalConfiguration.get();
-        String apiUrl = config.getApiUrl();
-        String apiKey = config.getApiKey();
-        String agentName = config.getAgentId(); // Use configured Agent ID as name
-        String agentWorkspaceId = config.getAgentWorkspaceId(); // Get workspace ID
+        CtrlplaneConfig ctrlConfig = new CtrlplaneConfig(
+            config.getApiUrl(),
+            config.getApiKey(), 
+            config.getAgentId(),
+            config.getAgentWorkspaceId()
+        );
 
-        // 2. Validate Configuration
-        if (apiUrl == null || apiUrl.isBlank()) {
-            LOGGER.warn("Ctrlplane API URL not configured. Skipping polling cycle.");
-            return;
-        }
-        if (apiKey == null || apiKey.isBlank()) {
-            LOGGER.warn("Ctrlplane API key not configured. Skipping polling cycle.");
-            return;
-        }
-        if (agentName == null || agentName.isBlank()) {
-            LOGGER.warn("Ctrlplane Agent ID (Name) not configured. Skipping polling cycle.");
-            return;
-        }
-        // Optionally warn if workspace ID is missing, depending on requirements
-        if (agentWorkspaceId == null || agentWorkspaceId.isBlank()) {
-            LOGGER.warn("Ctrlplane Agent Workspace ID not configured. Registration might fail or be incomplete.");
-            // Decide if this is fatal: return;
+        if (!ctrlConfig.validate()) {
+            return null;
         }
 
-        // 3. Create or get the JobAgent and ensure it's registered
+        return ctrlConfig;
+    }
+
+    private boolean initializeAndRegisterAgent(CtrlplaneConfig config) {
         if (jobAgent == null) {
-            // Use configured agentId as the name, add workspace ID
-            jobAgent = createJobAgent(apiUrl, apiKey, agentName, agentWorkspaceId);
-        } else {
-            // TODO: Consider if JobAgent needs updating if config changes (e.g., API key)
-            // Currently, it reuses the existing instance.
+            jobAgent = createJobAgent(
+                config.apiUrl, 
+                config.apiKey,
+                config.agentName,
+                config.agentWorkspaceId
+            );
         }
 
         if (!jobAgent.ensureRegistered()) {
             LOGGER.error("Agent registration check failed. Skipping polling cycle.");
-            return;
+            return false;
         }
 
-        // Agent ID is now managed internally by JobAgent
-        String currentAgentId = jobAgent.getAgentIdString();
+        String currentAgentId = jobAgent.getAgentId();
         if (currentAgentId == null) {
             LOGGER.error("Agent ID not available after registration attempt. Skipping polling cycle.");
-            return;
+            return false;
         }
-        LOGGER.debug("Polling jobs for registered agent ID: {}", currentAgentId);
 
-        // 4. Poll Ctrlplane API for jobs using the JobAgent
+        LOGGER.debug("Polling jobs for registered agent ID: {}", currentAgentId);
+        return true;
+    }
+
+    private List<Map<String, Object>> pollForJobs() {
         List<Map<String, Object>> pendingJobs = jobAgent.getNextJobs();
 
-        if (pendingJobs == null || pendingJobs.isEmpty()) { // Check for null explicitly
+        if (pendingJobs == null || pendingJobs.isEmpty()) {
             LOGGER.debug("No pending Ctrlplane jobs found or failed to fetch. Finished cycle.");
-            return;
+            return null;
         }
 
         LOGGER.info("Polled Ctrlplane API. Found {} job(s) to process.", pendingJobs.size());
+        return pendingJobs;
+    }
 
-        // 5. Process pending jobs
-        int triggeredCount = 0;
-        int skippedCount = 0;
-        int errorCount = 0;
+    private void processJobs(List<Map<String, Object>> pendingJobs) {
+        JobProcessingStats stats = new JobProcessingStats();
 
-        for (Map<String, Object> ctrlplaneJobMap : pendingJobs) {
-            // Extract job ID - assume it's a String field named 'id'
-            Object idObj = ctrlplaneJobMap.get("id");
-            if (!(idObj instanceof String ctrlplaneJobId)) {
-                LOGGER.warn("Skipping job: Missing or invalid 'id' field. Job Data: {}", ctrlplaneJobMap);
-                skippedCount++;
-                continue;
-            }
-            UUID ctrlplaneJobUUID; // Need UUID for status updates later
+        for (Map<String, Object> jobMap : pendingJobs) {
             try {
-                ctrlplaneJobUUID = UUID.fromString(ctrlplaneJobId);
-            } catch (IllegalArgumentException e) {
-                LOGGER.warn("Skipping job: Invalid UUID format for job ID '{}'.", ctrlplaneJobId);
-                skippedCount++;
-                continue;
-            }
-
-            // Get job agent config - assume it's a Map field named 'jobAgentConfig'
-            Object configObj = ctrlplaneJobMap.get("jobAgentConfig");
-            if (!(configObj instanceof Map)) {
-                LOGGER.warn("Skipping job ID {}: Missing or invalid 'jobAgentConfig' field.", ctrlplaneJobId);
-                skippedCount++;
-                continue;
-            }
-            @SuppressWarnings("unchecked") // Safe due to instanceof check
-            Map<String, Object> jobConfig = (Map<String, Object>) configObj;
-
-            // Get Jenkins job name from the config map
-            Object jenkinsJobNameObj = jobConfig.get("jenkinsJobName");
-            if (!(jenkinsJobNameObj instanceof String jenkinsJobName) || jenkinsJobName.isBlank()) {
-                LOGGER.warn("Skipping job ID {}: Missing or blank 'jenkinsJobName' in jobAgentConfig.", ctrlplaneJobId);
-                skippedCount++;
-                continue;
-            }
-
-            try {
-                // Skip already triggered jobs
-                if (triggeredJobIds.containsKey(ctrlplaneJobId)) {
-                    LOGGER.debug("Skipping already triggered Ctrlplane job ID: {}", ctrlplaneJobId);
-                    skippedCount++;
-                    continue;
-                }
-
-                LOGGER.info("Processing new Ctrlplane job ID: {} -> Jenkins Job: '{}'", ctrlplaneJobId, jenkinsJobName);
-
-                // Attempt to update status to RUNNING before triggering
-                // Optional: provide details like Jenkins build URL placeholder if known
-                if (!jobAgent.updateJobStatus(
-                        ctrlplaneJobUUID, "RUNNING", Collections.singletonMap("trigger", "JenkinsPoller"))) {
-                    LOGGER.warn(
-                            "Failed to update Ctrlplane job status to RUNNING for ID: {}. Proceeding with trigger attempt anyway.",
-                            ctrlplaneJobId);
-                    // Decide if this is a fatal error for this job
-                }
-
-                hudson.model.Job<?, ?> jenkinsItem =
-                        Jenkins.get().getItemByFullName(jenkinsJobName, hudson.model.Job.class);
-
-                if (jenkinsItem == null) {
-                    LOGGER.warn("Jenkins job '{}' for Ctrlplane job ID {} not found.", jenkinsJobName, ctrlplaneJobId);
-                    // Update status to FAILED
-                    jobAgent.updateJobStatus(
-                            ctrlplaneJobUUID,
-                            "FAILED",
-                            Collections.singletonMap("reason", "Jenkins job not found: " + jenkinsJobName));
-                    errorCount++;
-                    continue;
-                }
-
-                // Check if the item can be parameterized
-                if (!(jenkinsItem instanceof ParameterizedJobMixIn.ParameterizedJob<?, ?> jenkinsJob)) {
-                    LOGGER.warn(
-                            "Jenkins job '{}' for Ctrlplane job ID {} is not a Parameterized job.",
-                            jenkinsJobName,
-                            ctrlplaneJobId);
-                    // Update status to FAILED
-                    jobAgent.updateJobStatus(
-                            ctrlplaneJobUUID,
-                            "FAILED",
-                            Collections.singletonMap("reason", "Jenkins job not parameterizable: " + jenkinsJobName));
-                    errorCount++;
-                    continue;
-                }
-
-                // Prepare parameters
-                StringParameterValue jobIdParam = new StringParameterValue("CTRLPLANE_JOB_ID", ctrlplaneJobId);
-                // Potentially add other parameters from jobConfig if needed
-                ParametersAction paramsAction = new ParametersAction(jobIdParam);
-
-                // Trigger the Jenkins build
-                Object future = jenkinsJob.scheduleBuild2(0, paramsAction);
-
-                if (future != null) {
-                    LOGGER.info(
-                            "Successfully scheduled Jenkins job '{}' for Ctrlplane job ID {}",
-                            jenkinsJobName,
-                            ctrlplaneJobId);
-                    triggeredJobIds.put(ctrlplaneJobId, Boolean.TRUE);
-                    triggeredCount++;
-                    // Status already updated to RUNNING above
-                } else {
-                    LOGGER.error(
-                            "Failed to schedule Jenkins job '{}' for Ctrlplane job ID {}",
-                            jenkinsJobName,
-                            ctrlplaneJobId);
-                    // Update status to FAILED
-                    jobAgent.updateJobStatus(
-                            ctrlplaneJobUUID,
-                            "FAILED",
-                            Collections.singletonMap("reason", "Jenkins scheduleBuild2 returned null"));
-                    errorCount++;
-                }
+                processJob(jobMap, stats);
             } catch (Exception e) {
-                LOGGER.error("Error processing Ctrlplane job ID {}: {}", ctrlplaneJobId, e.getMessage(), e);
-                // Attempt to update status to FAILED
-                jobAgent.updateJobStatus(
-                        ctrlplaneJobUUID,
-                        "FAILED",
-                        Collections.singletonMap("reason", "Exception during processing: " + e.getMessage()));
-                errorCount++;
+                handleJobError(jobMap, e, stats);
             }
         }
 
         LOGGER.info(
-                "Ctrlplane job polling cycle finished. Triggered: {}, Skipped: {}, Errors: {}",
-                triggeredCount,
-                skippedCount,
-                errorCount);
+            "Ctrlplane job polling cycle finished. Triggered: {}, Skipped: {}, Errors: {}",
+            stats.triggered,
+            stats.skipped,
+            stats.errors
+        );
+    }
+
+    private void processJob(Map<String, Object> jobMap, JobProcessingStats stats) {
+        // Extract and validate job ID
+        JobInfo jobInfo = extractJobInfo(jobMap);
+        if (jobInfo == null) {
+            stats.skipped++;
+            return;
+        }
+
+        // Skip if already triggered
+        if (triggeredJobIds.containsKey(jobInfo.jobId)) {
+            LOGGER.debug("Skipping already triggered Ctrlplane job ID: {}", jobInfo.jobId);
+            stats.skipped++;
+            return;
+        }
+
+        // Update status to running
+        updateJobStatus(jobInfo, "RUNNING", "JenkinsPoller");
+
+        // Trigger Jenkins job
+        triggerJenkinsJob(jobInfo, stats);
+    }
+
+    private JobInfo extractJobInfo(Map<String, Object> jobMap) {
+        // Extract job ID
+        Object idObj = jobMap.get("id");
+        if (!(idObj instanceof String jobId)) {
+            LOGGER.warn("Skipping job: Missing or invalid 'id' field. Job Data: {}", jobMap);
+            return null;
+        }
+
+        // Parse UUID
+        UUID jobUUID;
+        try {
+            jobUUID = UUID.fromString(jobId);
+        } catch (IllegalArgumentException e) {
+            LOGGER.warn("Skipping job: Invalid UUID format for job ID '{}'.", jobId);
+            return null;
+        }
+
+        // Get job config
+        Object configObj = jobMap.get("jobAgentConfig");
+        if (!(configObj instanceof Map)) {
+            LOGGER.warn("Skipping job ID {}: Missing or invalid 'jobAgentConfig' field.", jobId);
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> jobConfig = (Map<String, Object>) configObj;
+
+        // Get Jenkins job name
+        Object jenkinsJobNameObj = jobConfig.get("jenkinsJobName");
+        if (!(jenkinsJobNameObj instanceof String jenkinsJobName) || jenkinsJobName.isBlank()) {
+            LOGGER.warn("Skipping job ID {}: Missing or blank 'jenkinsJobName' in jobAgentConfig.", jobId);
+            return null;
+        }
+
+        return new JobInfo(jobId, jobUUID, jenkinsJobName);
+    }
+
+    private void triggerJenkinsJob(JobInfo jobInfo, JobProcessingStats stats) {
+        hudson.model.Job<?, ?> jenkinsItem = Jenkins.get().getItemByFullName(jobInfo.jenkinsJobName, hudson.model.Job.class);
+
+        if (jenkinsItem == null) {
+            handleMissingJenkinsJob(jobInfo);
+            stats.errors++;
+            return;
+        }
+
+        if (!(jenkinsItem instanceof ParameterizedJobMixIn.ParameterizedJob<?, ?> jenkinsJob)) {
+            handleNonParameterizedJob(jobInfo);
+            stats.errors++;
+            return;
+        }
+
+        // Trigger build
+        StringParameterValue jobIdParam = new StringParameterValue("CTRLPLANE_JOB_ID", jobInfo.jobId);
+        ParametersAction paramsAction = new ParametersAction(jobIdParam);
+
+        Object future = jenkinsJob.scheduleBuild2(0, paramsAction);
+        if (future != null) {
+            handleSuccessfulTrigger(jobInfo);
+            triggeredJobIds.put(jobInfo.jobId, Boolean.TRUE);
+            stats.triggered++;
+        } else {
+            handleFailedTrigger(jobInfo);
+            stats.errors++;
+        }
+    }
+
+    private void handleJobError(Map<String, Object> jobMap, Exception e, JobProcessingStats stats) {
+        String jobId = jobMap.get("id") instanceof String ? (String)jobMap.get("id") : "unknown";
+        LOGGER.error("Error processing Ctrlplane job ID {}: {}", jobId, e.getMessage(), e);
+        
+        try {
+            UUID jobUUID = UUID.fromString(jobId);
+            jobAgent.updateJobStatus(
+                jobUUID,
+                "FAILED",
+                Collections.singletonMap("reason", "Exception during processing: " + e.getMessage())
+            );
+        } catch (Exception ex) {
+            LOGGER.error("Failed to update error status for job {}", jobId, ex);
+        }
+        
+        stats.errors++;
+    }
+
+    private void updateJobStatus(JobInfo jobInfo, String status, String trigger) {
+        if (!jobAgent.updateJobStatus(
+                jobInfo.jobUUID, 
+                status,
+                Collections.singletonMap("trigger", trigger))) {
+            LOGGER.warn(
+                "Failed to update Ctrlplane job status to {} for ID: {}",
+                status,
+                jobInfo.jobId
+            );
+        }
+    }
+
+    private void handleMissingJenkinsJob(JobInfo jobInfo) {
+        LOGGER.warn("Jenkins job '{}' for Ctrlplane job ID {} not found.", jobInfo.jenkinsJobName, jobInfo.jobId);
+        updateJobStatus(jobInfo, "FAILED", "Jenkins job not found: " + jobInfo.jenkinsJobName);
+    }
+
+    private void handleNonParameterizedJob(JobInfo jobInfo) {
+        LOGGER.warn(
+            "Jenkins job '{}' for Ctrlplane job ID {} is not a Parameterized job.",
+            jobInfo.jenkinsJobName,
+            jobInfo.jobId
+        );
+        updateJobStatus(jobInfo, "FAILED", "Jenkins job not parameterizable: " + jobInfo.jenkinsJobName);
+    }
+
+    private void handleSuccessfulTrigger(JobInfo jobInfo) {
+        LOGGER.info(
+            "Successfully scheduled Jenkins job '{}' for Ctrlplane job ID {}",
+            jobInfo.jenkinsJobName,
+            jobInfo.jobId
+        );
+    }
+
+    private void handleFailedTrigger(JobInfo jobInfo) {
+        LOGGER.error(
+            "Failed to schedule Jenkins job '{}' for Ctrlplane job ID {}",
+            jobInfo.jenkinsJobName,
+            jobInfo.jobId
+        );
+        updateJobStatus(jobInfo, "FAILED", "Jenkins scheduleBuild2 returned null");
     }
 
     /**
@@ -251,5 +302,55 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
      */
     protected JobAgent createJobAgent(String apiUrl, String apiKey, String agentName, String agentWorkspaceId) {
         return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId);
+    }
+
+    private static class CtrlplaneConfig {
+        final String apiUrl;
+        final String apiKey;
+        final String agentName;
+        final String agentWorkspaceId;
+
+        CtrlplaneConfig(String apiUrl, String apiKey, String agentName, String agentWorkspaceId) {
+            this.apiUrl = apiUrl;
+            this.apiKey = apiKey;
+            this.agentName = agentName;
+            this.agentWorkspaceId = agentWorkspaceId;
+        }
+
+        boolean validate() {
+            String[] requiredConfigs = {apiUrl, apiKey, agentName};
+            String[] configNames = {"API URL", "API key", "Agent ID (Name)"};
+            
+            for (int i = 0; i < requiredConfigs.length; i++) {
+                if (requiredConfigs[i] == null || requiredConfigs[i].isBlank()) {
+                    LOGGER.warn("Ctrlplane {} not configured. Skipping polling cycle.", configNames[i]);
+                    return false;
+                }
+            }
+
+            if (agentWorkspaceId == null || agentWorkspaceId.isBlank()) {
+                LOGGER.warn("Ctrlplane Agent Workspace ID not configured. Registration might fail or be incomplete.");
+            }
+
+            return true;
+        }
+    }
+
+    private static class JobInfo {
+        final String jobId;
+        final UUID jobUUID;
+        final String jenkinsJobName;
+
+        JobInfo(String jobId, UUID jobUUID, String jenkinsJobName) {
+            this.jobId = jobId;
+            this.jobUUID = jobUUID;
+            this.jenkinsJobName = jenkinsJobName;
+        }
+    }
+
+    private static class JobProcessingStats {
+        int triggered = 0;
+        int skipped = 0;
+        int errors = 0;
     }
 }

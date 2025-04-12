@@ -93,21 +93,20 @@ public class JobAgent {
             agentIdRef.set(agentId); // Set the ID directly from the response
             LOGGER.info("Agent upsert via PATCH {} succeeded. Agent ID: {}", path, agentId);
             return true;
-        } else {
-            // Log error based on whether response was null or ID was null
-            if (agentResponse == null) {
-                LOGGER.error(
-                        "Failed to upsert agent {} via PATCH {}. Request failed or returned unexpected response.",
-                        this.name,
-                        path);
-            } else { // agentResponse != null but agentResponse.getId() == null
-                LOGGER.error(
-                        "Failed to upsert agent {} via PATCH {}. Response did not contain an agent ID.",
-                        this.name,
-                        path);
-            }
-            return false;
         }
+        // Log error based on whether response was null or ID was null
+        if (agentResponse == null) {
+            LOGGER.error(
+                    "Failed to upsert agent {} via PATCH {}. Request failed or returned unexpected response.",
+                    this.name,
+                    path);
+        } else { // agentResponse != null but agentResponse.getId() == null
+            LOGGER.error(
+                    "Failed to upsert agent {} via PATCH {}. Response did not contain an agent ID.",
+                    this.name,
+                    path);
+        }
+        return false;
     }
 
     /**
@@ -146,7 +145,7 @@ public class JobAgent {
      *
      * @return the agent ID as a string, or null if not registered
      */
-    public String getAgentIdString() {
+    public String getAgentId() {
         return agentIdRef.get();
     }
 
