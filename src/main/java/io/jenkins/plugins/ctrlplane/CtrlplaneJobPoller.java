@@ -57,6 +57,12 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
 
     @Override
     protected void execute(TaskListener listener) {
+        Jenkins jenkins = Jenkins.get();
+        if (jenkins.isTerminating()) {
+            LOGGER.info("Jenkins is terminating, skipping Ctrlplane job polling cycle.");
+            return;
+        }
+
         LOGGER.debug("Starting Ctrlplane job polling cycle.");
 
         CtrlplaneConfig config = getAndValidateConfig();
@@ -69,6 +75,12 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
         }
 
         reconcileInProgressJobs();
+
+        // If Jenkins is shutting down, don't poll for or trigger new jobs
+        if (jenkins.isQuietingDown()) {
+            LOGGER.info("Jenkins is quieting down, skipping polling for new Ctrlplane jobs.");
+            return;
+        }
 
         List<Map<String, Object>> pendingJobs = pollForJobs();
         if (pendingJobs == null || pendingJobs.isEmpty()) {
