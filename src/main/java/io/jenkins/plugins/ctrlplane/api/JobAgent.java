@@ -102,9 +102,7 @@ public class JobAgent {
                     path);
         } else { // agentResponse != null but agentResponse.getId() == null
             LOGGER.error(
-                    "Failed to upsert agent {} via PATCH {}. Response did not contain an agent ID.",
-                    this.name,
-                    path);
+                    "Failed to upsert agent {} via PATCH {}. Response did not contain an agent ID.", this.name, path);
         }
         return false;
     }
@@ -200,7 +198,7 @@ public class JobAgent {
      * Updates the status of a specific job.
      *
      * @param jobId The UUID of the job to update.
-     * @param status The new status string (e.g., "RUNNING", "COMPLETED", "FAILED").
+     * @param status The new status string (e.g., "in_progress", "successful", "failure").
      * @param details Optional map containing additional details about the status update.
      * @return true if the update was likely successful (e.g., 2xx response), false otherwise.
      */
@@ -210,16 +208,50 @@ public class JobAgent {
             return false;
         }
 
-        String path = String.format("/v1/jobs/%s/status", jobId); // Assuming this endpoint structure
+        String path = String.format("/v1/jobs/%s", jobId);
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("status", status);
+
+        // Extract message and externalId from details if present
+        String message = null;
+        String externalId = null;
+
         if (details != null && !details.isEmpty()) {
-            requestBody.put("details", details);
+            // Check for external ID in details
+            if (details.containsKey("externalId")) {
+                externalId = details.get("externalId").toString();
+                requestBody.put("externalId", externalId);
+            }
+
+            // Extract message if present, otherwise use trigger as message
+            if (details.containsKey("message")) {
+                message = details.get("message").toString();
+            } else if (details.containsKey("trigger")) {
+                message = "Triggered by: " + details.get("trigger");
+            } else if (details.containsKey("reason")) {
+                message = details.get("reason").toString();
+            }
+
+            if (message != null) {
+                requestBody.put("message", message);
+            }
         }
 
-        // Status updates often return 200 OK or 204 No Content without a body.
-        // We can check the response code directly.
-        Integer responseCode = makeHttpRequestAndGetCode("PUT", path, requestBody); // Assuming PUT
+        // Check for ctrlplane/links metadata
+        if (details != null && details.containsKey("ctrlplane/links")) {
+            Object linksObj = details.get("ctrlplane/links");
+            if (linksObj instanceof Map) {
+                // Assuming the value is Map<String, String>, but API expects Map<String, Object>
+                // No explicit cast needed as Map is compatible.
+                requestBody.put("ctrlplane/links", linksObj);
+            } else {
+                LOGGER.warn(
+                        "Value for 'ctrlplane/links' in details map is not a Map for job {}. Skipping links.", jobId);
+            }
+        }
+
+        // Use PATCH method according to the API spec
+        Integer responseCode = makeHttpRequestAndGetCode("PATCH", path, requestBody);
 
         boolean success = responseCode != null && responseCode >= 200 && responseCode < 300;
         if (success) {
@@ -232,6 +264,42 @@ public class JobAgent {
                     responseCode != null ? responseCode : "N/A");
         }
         return success;
+    }
+
+    /**
+     * Gets the details of a specific job by its UUID.
+     *
+     * @param jobId The UUID of the job to retrieve.
+     * @return A map containing the job details, or null if the job is not found or an error occurs.
+     */
+    public Map<String, Object> getJob(UUID jobId) {
+        if (jobId == null) {
+            LOGGER.error("Invalid input for getJob: Job ID cannot be null.");
+            return null;
+        }
+
+        String path = String.format("/v1/jobs/%s", jobId);
+        LOGGER.debug("Attempting to GET job details from path: {}", path);
+
+        // Use the existing makeHttpRequest helper that handles generic Maps
+        try {
+            // The response for GET /v1/jobs/{jobId} is the Job object directly (Map)
+            Map<String, Object> jobData =
+                    makeHttpRequest("GET", path, null, new TypeReference<Map<String, Object>>() {});
+
+            if (jobData != null) {
+                LOGGER.info("Successfully retrieved details for job {}", jobId);
+                return jobData;
+            } else {
+                // makeHttpRequest logs errors, but we can add context here
+                LOGGER.warn("Failed to retrieve details for job {}, makeHttpRequest returned null.", jobId);
+                return null;
+            }
+        } catch (Exception e) {
+            // Catch any unexpected exceptions during the process
+            LOGGER.error("Exception occurred while retrieving job details for job {}: {}", jobId, e.getMessage(), e);
+            return null;
+        }
     }
 
     // --- Internal HTTP Helper Methods (using java.net.http) ---

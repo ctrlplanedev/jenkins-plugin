@@ -1,0 +1,4074 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Cloud Regions Geo API",
+    "description": "API to get geographic data for cloud provider regions",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/cloud-locations/{provider}": {
+      "get": {
+        "summary": "Get all regions for a specific cloud provider",
+        "description": "Returns geographic data for all regions of a specific cloud provider",
+        "operationId": "getCloudProviderRegions",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "aws",
+                "gcp",
+                "azure"
+              ]
+            },
+            "description": "Cloud provider (aws, gcp, azure)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully returned geographic data for cloud provider regions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/CloudRegionGeoData"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cloud provider not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Cloud provider 'unknown' not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployment-version-channels": {
+      "post": {
+        "summary": "Create a deployment version channel",
+        "operationId": "createDeploymentVersionChannel",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "deploymentId",
+                  "name",
+                  "versionSelector"
+                ],
+                "properties": {
+                  "deploymentId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "versionSelector": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment version channel created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "deploymentId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "versionSelector": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "deploymentId",
+                    "name",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Deployment version channel already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create deployment version channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/deployment-versions/{deploymentVersionId}": {
+      "patch": {
+        "summary": "Updates a deployment version",
+        "operationId": "updateDeploymentVersion",
+        "parameters": [
+          {
+            "name": "deploymentVersionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The deployment version ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "type": "string"
+                  },
+                  "deploymentId": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "jobAgentConfig": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "building",
+                      "failed"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentVersion"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployment-versions": {
+      "post": {
+        "summary": "Upserts a deployment version",
+        "operationId": "upsertDeploymentVersion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "type": "string"
+                  },
+                  "deploymentId": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "jobAgentConfig": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "building",
+                      "failed"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "tag",
+                  "deploymentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentVersion"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Deployment version already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}/deployment-version-channels/name/{name}": {
+      "delete": {
+        "summary": "Delete a deployment version channel",
+        "operationId": "deleteDeploymentVersionChannel",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment version channel deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment version channel not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to delete deployment version channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}": {
+      "get": {
+        "summary": "Get a deployment",
+        "operationId": "getDeployment",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a deployment",
+        "operationId": "deleteDeployment",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to delete deployment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a deployment",
+        "operationId": "updateDeployment",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDeployment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update deployment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deploymentId}/release-channels/name/{name}": {
+      "delete": {
+        "summary": "Delete a release channel",
+        "operationId": "deleteReleaseChannel",
+        "parameters": [
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Release channel deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Release channel not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to delete release channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments": {
+      "post": {
+        "summary": "Create a deployment",
+        "operationId": "createDeployment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "systemId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The ID of the system to create the deployment for",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the deployment",
+                    "example": "My Deployment"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "description": "The slug of the deployment",
+                    "example": "my-deployment"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "The description of the deployment",
+                    "example": "This is a deployment for my system"
+                  },
+                  "jobAgentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The ID of the job agent to use for the deployment",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                  },
+                  "jobAgentConfig": {
+                    "type": "object",
+                    "description": "The configuration for the job agent",
+                    "example": {
+                      "key": "value"
+                    }
+                  },
+                  "retryCount": {
+                    "type": "number",
+                    "description": "The number of times to retry the deployment",
+                    "example": 3
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "description": "The timeout for the deployment",
+                    "example": 60
+                  },
+                  "resourceSelector": {
+                    "type": "object",
+                    "description": "The resource selector for the deployment",
+                    "example": {
+                      "key": "value"
+                    }
+                  }
+                },
+                "required": [
+                  "systemId",
+                  "slug",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deployment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Deployment already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create deployment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/environments/{environmentId}": {
+      "get": {
+        "summary": "Get an environment",
+        "operationId": "getEnvironment",
+        "parameters": [
+          {
+            "name": "environmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID of the environment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Environment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Environment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Environment not found"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an environment",
+        "operationId": "deleteEnvironment",
+        "parameters": [
+          {
+            "name": "environmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID of the environment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Environment deleted successfully"
+          }
+        }
+      }
+    },
+    "/v1/environments": {
+      "post": {
+        "summary": "Create an environment",
+        "operationId": "createEnvironment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "systemId",
+                  "name"
+                ],
+                "properties": {
+                  "directory": {
+                    "type": "string",
+                    "description": "The directory path of the environment",
+                    "example": "my/env/path",
+                    "default": ""
+                  },
+                  "systemId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "resourceSelector": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "policyId": {
+                    "type": "string"
+                  },
+                  "releaseChannels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deploymentVersionChannels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Environment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Environment"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Environment already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create environment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/job-agents/{agentId}/jobs/running": {
+      "get": {
+        "summary": "Get a agents running jobs",
+        "operationId": "getAgentRunningJobs",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The execution ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "$ref": "#/components/schemas/Job"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/job-agents/{agentId}/queue/acknowledge": {
+      "post": {
+        "summary": "Acknowledge a job for an agent",
+        "operationId": "acknowledgeAgentJob",
+        "description": "Marks a job as acknowledged by the agent",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The ID of the job agent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully acknowledged job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/job-agents/{agentId}/queue/next": {
+      "get": {
+        "summary": "Get the next jobs",
+        "operationId": "getNextJobs",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The agent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/job-agents/name": {
+      "patch": {
+        "summary": "Upserts the agent",
+        "operationId": "upsertJobAgent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "name",
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved or created the agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "workspaceId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{jobId}/acknowledge": {
+      "post": {
+        "summary": "Acknowledge a job",
+        "operationId": "acknowledgeJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The job ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sucess": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sucess"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{jobId}": {
+      "get": {
+        "summary": "Get a Job",
+        "operationId": "getJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The job ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobWithTrigger"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Job not found."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a job",
+        "operationId": "updateJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The execution ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "$ref": "#/components/schemas/JobStatus",
+                    "nullable": true
+                  },
+                  "message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "externalId": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/relationship/job-to-resource": {
+      "post": {
+        "summary": "Create a relationship between a job and a resource",
+        "operationId": "createJobToResourceRelationship",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jobId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Unique identifier of the job",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                  },
+                  "resourceIdentifier": {
+                    "type": "string",
+                    "description": "Unique identifier of the resource",
+                    "maxLength": 255,
+                    "example": "resource-123"
+                  }
+                },
+                "required": [
+                  "jobId",
+                  "resourceIdentifier"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Relationship created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Relationship created successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid jobId format"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job or resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Job with specified ID not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Relationship already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Relationship between job and resource already exists"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Internal server error occurred"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/relationship/resource-to-resource": {
+      "post": {
+        "summary": "Create a relationship between two resources",
+        "operationId": "createResourceToResourceRelationship",
+        "tags": [
+          "Resource Relationships"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The workspace ID",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                  },
+                  "fromIdentifier": {
+                    "type": "string",
+                    "description": "The identifier of the resource to connect",
+                    "example": "my-resource"
+                  },
+                  "toIdentifier": {
+                    "type": "string",
+                    "description": "The identifier of the resource to connect to",
+                    "example": "my-resource"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "The type of relationship",
+                    "example": "depends_on"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "fromIdentifier",
+                  "toIdentifier",
+                  "type"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Relationship created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Relationship created successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Relationship already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/release-channels": {
+      "post": {
+        "summary": "Create a release channel",
+        "operationId": "createReleaseChannel",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "deploymentId",
+                  "name",
+                  "releaseSelector"
+                ],
+                "properties": {
+                  "deploymentId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "releaseSelector": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Release channel created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "deploymentId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "releaseSelector": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "deploymentId",
+                    "name",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Release channel already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create release channel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/releases/{releaseId}": {
+      "patch": {
+        "summary": "Updates a release",
+        "operationId": "updateRelease",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The release ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string"
+                  },
+                  "deploymentId": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "jobAgentConfig": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "building",
+                      "failed"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Release"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/releases": {
+      "post": {
+        "summary": "Upserts a release",
+        "operationId": "upsertRelease",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string"
+                  },
+                  "deploymentId": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "jobAgentConfig": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "building",
+                      "failed"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "version",
+                  "deploymentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Release"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Release already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/resource-providers/{providerId}/set": {
+      "patch": {
+        "summary": "Sets the resource for a provider.",
+        "operationId": "setResourceProvidersResources",
+        "parameters": [
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID of the scanner"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resources"
+                ],
+                "properties": {
+                  "resources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "identifier": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "config": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "identifier",
+                        "name",
+                        "version",
+                        "kind",
+                        "config",
+                        "metadata"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated the deployment resources"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Deployment resources not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/resources/{resourceId}": {
+      "get": {
+        "summary": "Get a resource",
+        "operationId": "getResource",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The resource ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "identifier": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "config": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "lockedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "provider": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "variable": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                    "identifier",
+                    "version",
+                    "config",
+                    "workspaceId",
+                    "updatedAt",
+                    "metadata",
+                    "variable"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Resource not found"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a resource",
+        "operationId": "updateResource",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "identifier": {
+                    "type": "string"
+                  },
+                  "workspaceId": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "variables": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Variable"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resource updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "identifier": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "config": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                    "identifier",
+                    "version",
+                    "config",
+                    "workspaceId",
+                    "metadata"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a resource",
+        "operationId": "deleteResource",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The resource ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/resources": {
+      "post": {
+        "summary": "Create or update multiple resources",
+        "operationId": "upsertResources",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "workspaceId",
+                  "resources"
+                ],
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "resources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "kind",
+                        "identifier",
+                        "version",
+                        "config"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "identifier": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "string"
+                        },
+                        "config": {
+                          "type": "object"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "variables": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Variable"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All of the cats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/systems/{systemId}/environments/{name}": {
+      "delete": {
+        "summary": "Delete an environment",
+        "operationId": "deleteEnvironmentByName",
+        "parameters": [
+          {
+            "name": "systemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID of the system"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the environment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Environment deleted successfully"
+          }
+        }
+      }
+    },
+    "/v1/systems/{systemId}": {
+      "get": {
+        "summary": "Get a system",
+        "operationId": "getSystem",
+        "parameters": [
+          {
+            "name": "systemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID of the system"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/System"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "environments": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Environment"
+                          }
+                        },
+                        "deployments": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Deployment"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a system",
+        "operationId": "updateSystem",
+        "parameters": [
+          {
+            "name": "systemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID of the system"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Name of the system"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "description": "Slug of the system"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the system"
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "UUID of the workspace"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "System updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/System"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "System not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "System not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a system",
+        "operationId": "deleteSystem",
+        "parameters": [
+          {
+            "name": "systemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "System deleted"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "System not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "System not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/systems": {
+      "post": {
+        "summary": "Create a system",
+        "operationId": "createSystem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The workspace ID of the system"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the system"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "description": "The slug of the system"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "The description of the system"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "name",
+                  "slug"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "System created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/System"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "invalid_type",
+                              "invalid_literal",
+                              "custom"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "message",
+                          "path"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "validation-error": {
+                    "value": {
+                      "error": [
+                        {
+                          "code": "invalid_type",
+                          "message": "Invalid input",
+                          "path": [
+                            "name"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Internal Server Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/deployments": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The ID of the workspace"
+        }
+      ],
+      "get": {
+        "summary": "List all deployments",
+        "operationId": "listDeployments",
+        "responses": {
+          "200": {
+            "description": "All deployments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Deployment"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/environments": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The ID of the workspace"
+        }
+      ],
+      "get": {
+        "summary": "List all environments",
+        "operationId": "listEnvironments",
+        "responses": {
+          "200": {
+            "description": "All environments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Environment"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}": {
+      "get": {
+        "summary": "Get a workspace",
+        "operationId": "getWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The workspace ID",
+              "example": "123e4567-e89b-12d3-a456-426614174000"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/resource-providers/name/{name}": {
+      "get": {
+        "summary": "Upserts a resource provider.",
+        "operationId": "upsertResourceProvider",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the workspace"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the resource provider"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved or created the resource provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "workspaceId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Workspace not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/resources/{filter}": {
+      "get": {
+        "summary": "Get resources by filter",
+        "operationId": "getResourcesByFilter",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the workspace"
+          },
+          {
+            "name": "filter",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to apply to the resources"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Resource"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selector",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/resources/identifier/{identifier}": {
+      "get": {
+        "summary": "Get a resource by identifier",
+        "operationId": "getResourceByIdentifier",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the workspace"
+          },
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "identifier": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "providerId": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "workspaceId": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "variables": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "identifier",
+                    "workspaceId",
+                    "providerId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Resource not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a resource by identifier",
+        "operationId": "deleteResourceByIdentifier",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the workspace"
+          },
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier of the resource"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully deleted the resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Resource not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/resources": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The ID of the workspace"
+        }
+      ],
+      "get": {
+        "summary": "List all resources",
+        "operationId": "listResources",
+        "responses": {
+          "200": {
+            "description": "All resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Resource"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspaceId}/systems": {
+      "parameters": [
+        {
+          "name": "workspaceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The ID of the workspace"
+        }
+      ],
+      "get": {
+        "summary": "List all systems",
+        "operationId": "listSystems",
+        "responses": {
+          "200": {
+            "description": "All systems",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/System"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/slug/{workspaceSlug}": {
+      "get": {
+        "summary": "Get a workspace by slug",
+        "operationId": "getWorkspaceBySlug",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "my-workspace"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workspace not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CloudRegionGeoData": {
+        "type": "object",
+        "required": [
+          "timezone",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "Timezone of the region in UTC format",
+            "example": "UTC+1"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "float",
+            "description": "Latitude coordinate for the region",
+            "example": 50.1109
+          },
+          "longitude": {
+            "type": "number",
+            "format": "float",
+            "description": "Longitude coordinate for the region",
+            "example": 8.6821
+          }
+        }
+      },
+      "JobWithTrigger": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Job"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "release": {
+                "$ref": "#/components/schemas/Release"
+              },
+              "deploymentVersion": {
+                "$ref": "#/components/schemas/DeploymentVersion"
+              },
+              "deployment": {
+                "$ref": "#/components/schemas/Deployment"
+              },
+              "runbook": {
+                "$ref": "#/components/schemas/Runbook"
+              },
+              "resource": {
+                "$ref": "#/components/schemas/Resource"
+              },
+              "environment": {
+                "$ref": "#/components/schemas/Environment"
+              },
+              "variables": {
+                "type": "object"
+              },
+              "approval": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "approved",
+                      "rejected"
+                    ]
+                  },
+                  "approver": {
+                    "type": "object",
+                    "nullable": true,
+                    "description": "Null when status is pending, contains approver details when approved or rejected",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "variables"
+            ]
+          }
+        ]
+      },
+      "Workspace": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The workspace ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the workspace"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The slug of the workspace"
+          },
+          "googleServiceAccountEmail": {
+            "type": "string",
+            "description": "The email of the Google service account attached to the workspace",
+            "example": "ctrlplane@ctrlplane-workspace.iam.gserviceaccount.com",
+            "nullable": true
+          },
+          "awsRoleArn": {
+            "type": "string",
+            "description": "The ARN of the AWS role attached to the workspace",
+            "example": "arn:aws:iam::123456789012:role/ctrlplane-workspace-role",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ]
+      },
+      "System": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The system ID"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The workspace ID of the system"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the system"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The slug of the system"
+          },
+          "description": {
+            "type": "string",
+            "description": "The description of the system"
+          }
+        },
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "slug"
+        ]
+      },
+      "Deployment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "systemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobAgentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "jobAgentConfig": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "retryCount": {
+            "type": "integer"
+          },
+          "timeout": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "description",
+          "systemId",
+          "jobAgentConfig"
+        ]
+      },
+      "UpdateDeployment": {
+        "type": "object",
+        "description": "Schema for updating a deployment (all fields optional)",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Deployment"
+          },
+          {
+            "type": "object",
+            "additionalProperties": true
+          }
+        ],
+        "required": [
+          "id"
+        ],
+        "additionalProperties": true
+      },
+      "Release": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "jobAgentConfig": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "deploymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "config",
+          "deploymentId",
+          "createdAt",
+          "jobAgentConfig"
+        ]
+      },
+      "DeploymentVersion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "jobAgentConfig": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "deploymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tag",
+          "config",
+          "deploymentId",
+          "createdAt",
+          "jobAgentConfig"
+        ]
+      },
+      "Policy": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The policy ID"
+          },
+          "systemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The system ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the policy"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "The description of the policy"
+          },
+          "approvalRequirement": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "automatic"
+            ],
+            "description": "The approval requirement of the policy"
+          },
+          "successType": {
+            "type": "string",
+            "enum": [
+              "some",
+              "all",
+              "optional"
+            ],
+            "description": "If a policy depends on an environment, whether or not the policy requires all, some, or optional successful releases in the environment"
+          },
+          "successMinimum": {
+            "type": "number",
+            "description": "If a policy depends on an environment, the minimum number of successful releases in the environment"
+          },
+          "concurrencyLimit": {
+            "type": "number",
+            "nullable": true,
+            "description": "The maximum number of concurrent releases in the environment"
+          },
+          "rolloutDuration": {
+            "type": "number",
+            "description": "The duration of the rollout in milliseconds"
+          },
+          "minimumReleaseInterval": {
+            "type": "number",
+            "description": "The minimum interval between releases in milliseconds"
+          },
+          "releaseSequencing": {
+            "type": "string",
+            "enum": [
+              "wait",
+              "cancel"
+            ],
+            "description": "If a new release is created, whether it will wait for the current release to finish before starting, or cancel the current release"
+          }
+        },
+        "required": [
+          "id",
+          "systemId",
+          "name",
+          "approvalRequirement",
+          "successType",
+          "successMinimum",
+          "rolloutDuration",
+          "minimumReleaseInterval",
+          "releaseSequencing"
+        ]
+      },
+      "Environment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "systemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "policyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "resourceSelector": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "directory": {
+            "type": "string",
+            "description": "The directory path of the environment",
+            "example": "my/env/path",
+            "default": ""
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "policy": {
+            "$ref": "#/components/schemas/Policy",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "systemId",
+          "name",
+          "createdAt",
+          "directory"
+        ]
+      },
+      "Runbook": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "systemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobAgentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "systemId",
+          "jobAgentId"
+        ]
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "kind",
+          "identifier",
+          "config",
+          "workspaceId",
+          "createdAt",
+          "updatedAt",
+          "metadata"
+        ]
+      },
+      "JobStatus": {
+        "type": "string",
+        "enum": [
+          "successful",
+          "cancelled",
+          "skipped",
+          "in_progress",
+          "action_required",
+          "pending",
+          "failure",
+          "invalid_job_agent",
+          "invalid_integration",
+          "external_run_not_found"
+        ]
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true,
+            "description": "External job identifier (e.g. GitHub workflow run ID)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "jobAgentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobAgentConfig": {
+            "type": "object",
+            "description": "Configuration for the Job Agent",
+            "additionalProperties": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "jobAgentConfig"
+        ]
+      },
+      "Variable": {
+        "type": "object",
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "sensitive": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

@@ -48,7 +48,7 @@ def getJob(String jobId, String baseUrl = 'https://api.example.com', String apiK
     
     // Add API key if provided
     if (apiKey) {
-        connection.setRequestProperty('Authorization', "Bearer ${apiKey}")
+        connection.setRequestProperty('X-API-Key', apiKey)
     }
     
     try {
