@@ -26,27 +26,13 @@
   <developers>
     <developer>
       <id>zacharyblasczyk</id>
-      <!-- Optional: Usually GitHub username -->
       <name>Zachary Blasczyk</name>
       <email>zachary@ctrlplane.dev</email>
-      <!-- Optional -->
-      <!-- <organization>Your Organization</organization> -->
-      <!-- Optional -->
-      <!-- <organizationUrl>http://example.com</organizationUrl> -->
-      <!-- Optional -->
-      <!-- <roles><role>developer</role></roles> -->
-      <!-- Optional -->
     </developer>
     <developer>
       <id>jsbrooks</id>
-      <!-- Optional: Usually GitHub username -->
       <name>Justin Brooks</name>
       <email>justin@ctrlplane.dev</email>
-      <!-- Optional -->
-      <!-- <organization>Your Organization</organization> -->
-      <!-- Optional -->
-      <!-- <organizationUrl>http://example.com</organizationUrl> -->
-      <!-- Optional -->
     </developer>
   </developers>
   <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
