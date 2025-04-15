@@ -1,4 +1,7 @@
 <?jelly escape-by-default='true'?>
 <div>
-    TODO
+    ${%plugin.description}
+    <p>
+        ${%plugin.configuration}
+    </p>
 </div>

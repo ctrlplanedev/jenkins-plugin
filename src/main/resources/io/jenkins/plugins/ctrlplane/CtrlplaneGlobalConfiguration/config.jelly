@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:section title="Ctrlplane Agent">
+        <f:entry title="${%config.apiUrl.title}" field="apiUrl"
+                 description="${%config.apiUrl.description}">
+            <f:textbox />
+        </f:entry>
+        <f:entry title="${%config.apiKey.title}" field="apiKey"
+                 description="${%config.apiKey.description}">
+            <f:password />
+        </f:entry>
+        <f:entry title="${%config.agentId.title}" field="agentId"
+                 description="${%config.agentId.description}">
+            <f:textbox />
+        </f:entry>
+        <f:entry title="${%config.agentWorkspaceId.title}" field="agentWorkspaceId"
+                 description="${%config.agentWorkspaceId.description}">
+            <f:textbox />
+        </f:entry>
+        <f:entry title="${%config.pollingIntervalSeconds.title}" field="pollingIntervalSeconds"
+                 description="${%config.pollingIntervalSeconds.description}">
+            <f:number default="${descriptor.DEFAULT_POLLING_INTERVAL_SECONDS}" min="10" />
+        </f:entry>
+    </f:section>
+</j:jelly>

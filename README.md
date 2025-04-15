@@ -2,30 +2,24 @@
 
 ## Introduction
 
-TODO Describe what your plugin does here
+This plugin integrates Jenkins with Ctrlplane by acting as a Job Agent.
+It allows Ctrlplane to trigger specific Jenkins pipeline jobs as part of a Deployment workflow.
+The plugin polls Ctrlplane for pending jobs assigned to it and injects job context (like the Ctrlplane Job ID) into the triggered Jenkins pipeline.
 
 ## Getting started
 
-TODO Tell users how to configure your plugin here, include screenshots, pipeline
-examples and configuration-as-code examples.
+For detailed installation, configuration, and usage instructions, please refer to the official documentation:
+
+[**Ctrlplane Jenkins Integration Documentation**](https://docs.ctrlplane.dev/integrations/saas/jenkins)
 
 ## Issues
 
-TODO Decide where you're going to host your issues, the default is Jenkins JIRA,
-but you can also enable GitHub issues, If you use GitHub issues there's no need
-for this section; else add the following line:
-
-Report issues and enhancements in the [Jenkins issue tracker](https://issues.jenkins.io/).
+Report issues and enhancements on the [GitHub Issues page](https://github.com/ctrlplanedev/jenkins-plugin/issues).
 
 ## Contributing
-
-TODO review the default
-[CONTRIBUTING](https://github.com/jenkinsci/.github/blob/master/CONTRIBUTING.md)
-file and make sure it is appropriate for your plugin, if not then add your own
-one adapted from the base file
 
 Refer to our [contribution guidelines](https://github.com/jenkinsci/.github/blob/master/CONTRIBUTING.md)
 
 ## LICENSE
 
-Licensed under MIT, see [LICENSE](LICENSE.md)
+Licensed under MIT, see [LICENSE](LICENSE)
