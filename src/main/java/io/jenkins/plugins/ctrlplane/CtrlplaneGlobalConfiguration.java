@@ -192,6 +192,13 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
         }
     }
 
+    /**
+     * Validates the Agent Workspace ID field from the configuration form.
+     *
+     * @param value The agent workspace ID to validate
+     * @return FormValidation result
+     */
+    @POST
     public FormValidation doCheckAgentWorkspaceId(@QueryParameter String value) {
         if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
             return FormValidation.ok();
