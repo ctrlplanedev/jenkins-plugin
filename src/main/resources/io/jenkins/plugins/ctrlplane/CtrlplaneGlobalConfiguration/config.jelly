@@ -2,24 +2,24 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:section title="Ctrlplane Agent">
-        <f:entry title="API URL" field="apiUrl"
-                 description="The URL of the Ctrlplane API (e.g., https://app.ctrlplane.dev)">
+        <f:entry title="${%config.apiUrl.title}" field="apiUrl"
+                 description="${%config.apiUrl.description}">
             <f:textbox />
         </f:entry>
-        <f:entry title="API Key" field="apiKey"
-                 description="The API key for authenticating with Ctrlplane">
+        <f:entry title="${%config.apiKey.title}" field="apiKey"
+                 description="${%config.apiKey.description}">
             <f:password />
         </f:entry>
-        <f:entry title="Agent ID" field="agentId"
-                 description="The unique identifier for this agent in Ctrlplane">
+        <f:entry title="${%config.agentId.title}" field="agentId"
+                 description="${%config.agentId.description}">
             <f:textbox />
         </f:entry>
-        <f:entry title="Agent Workspace ID" field="agentWorkspaceId"
-                 description="The workspace ID for this agent in Ctrlplane">
+        <f:entry title="${%config.agentWorkspaceId.title}" field="agentWorkspaceId"
+                 description="${%config.agentWorkspaceId.description}">
             <f:textbox />
         </f:entry>
-        <f:entry title="Polling Interval (seconds)" field="pollingIntervalSeconds"
-                 description="How often to check Ctrlplane for new jobs (minimum 10 seconds).">
+        <f:entry title="${%config.pollingIntervalSeconds.title}" field="pollingIntervalSeconds"
+                 description="${%config.pollingIntervalSeconds.description}">
             <f:number default="${descriptor.DEFAULT_POLLING_INTERVAL_SECONDS}" min="10" />
         </f:entry>
     </f:section>

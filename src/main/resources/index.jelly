@@ -1,8 +1,7 @@
 <?jelly escape-by-default='true'?>
 <div>
-    This plugin integrates Jenkins with Ctrlplane for triggering and monitoring jobs.
+    ${%plugin.description}
     <p>
-        Configuration for this plugin is managed globally. Go to Manage Jenkins > System
-        and find the <b>Ctrlplane Agent Plugin</b> section.
+        ${%plugin.configuration}
     </p>
 </div>
