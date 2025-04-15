@@ -67,27 +67,5 @@ public class CtrlplaneJobPollerTest {
     }
 
     @Test
-    public void testTriggerJenkinsJobWithParameters() {
-        // This is a simple example of how you might test passing parameters to a Jenkins job
-        // In a real test, you would need to mock Jenkins.get() and other external dependencies
-
-        /*
-         * Example implementation using mocking framework (not included):
-         *
-         * // Setup
-         * Jenkins jenkinsMock = mock(Jenkins.class);
-         * ParameterizedJobMixIn.ParameterizedJob jobMock = mock(ParameterizedJobMixIn.ParameterizedJob.class);
-         * when(jenkinsMock.getItemByFullName("test-job", hudson.model.Job.class)).thenReturn(jobMock);
-         * when(jobMock.scheduleBuild2(eq(0), any(ParametersAction.class))).thenReturn(mock(QueueTaskFuture.class));
-         *
-         * // Execute
-         * JobInfo jobInfo = new JobInfo("test-uuid", UUID.randomUUID(), "http://jenkins/job/test-job/");
-         * jobPoller.triggerJenkinsJob(jobInfo, new CtrlplaneJobPoller.JobProcessingStats());
-         *
-         * // Verify
-         * verify(jobMock).scheduleBuild2(eq(0), paramActionCaptor.capture());
-         * ParametersAction capturedAction = paramActionCaptor.getValue();
-         * assertEquals("test-uuid", ((StringParameterValue)capturedAction.getParameters().get(0)).getValue());
-         */
-    }
+    public void testTriggerJenkinsJobWithParameters() {}
 }

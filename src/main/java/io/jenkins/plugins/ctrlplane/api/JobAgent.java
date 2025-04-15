@@ -37,7 +37,6 @@ public class JobAgent {
     private final String apiKey;
     private final String name;
     private final String agentWorkspaceId;
-    private final int pollingIntervalSeconds;
 
     private final AtomicReference<String> agentIdRef = new AtomicReference<>(null);
 
@@ -48,26 +47,12 @@ public class JobAgent {
      * @param apiKey            the API key
      * @param name              the agent name
      * @param agentWorkspaceId  the workspace ID this agent belongs to
-     * @param pollingIntervalSeconds the polling interval in seconds
      */
-    public JobAgent(String apiUrl, String apiKey, String name, String agentWorkspaceId, int pollingIntervalSeconds) {
+    public JobAgent(String apiUrl, String apiKey, String name, String agentWorkspaceId) {
         this.apiUrl = apiUrl;
         this.apiKey = apiKey;
         this.name = name;
         this.agentWorkspaceId = agentWorkspaceId;
-        this.pollingIntervalSeconds = pollingIntervalSeconds;
-    }
-
-    /**
-     * Creates a JobAgent with the default polling interval.
-     *
-     * @param apiUrl the URL of the Ctrlplane API
-     * @param apiKey the API key for authentication
-     * @param name the name of this agent
-     * @param agentWorkspaceId the workspace ID for this agent
-     */
-    public JobAgent(String apiUrl, String apiKey, String name, String agentWorkspaceId) {
-        this(apiUrl, apiKey, name, agentWorkspaceId, 60); // 60 seconds is the default polling interval
     }
 
     /**

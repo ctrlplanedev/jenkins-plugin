@@ -662,7 +662,7 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
         if (apiUrl == null || apiUrl.isBlank() || apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Cannot create JobAgent: API URL or API Key is missing.");
         }
-        return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId, pollingIntervalSeconds);
+        return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId);
     }
 
     /**

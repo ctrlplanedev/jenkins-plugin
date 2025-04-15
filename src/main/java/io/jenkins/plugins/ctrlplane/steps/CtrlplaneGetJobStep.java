@@ -107,7 +107,6 @@ public class CtrlplaneGetJobStep extends Step {
             String apiKey = config.getApiKey();
             String agentName = config.getAgentId();
             String workspaceId = config.getAgentWorkspaceId();
-            int pollingIntervalSeconds = config.getPollingIntervalSeconds();
 
             if (apiUrl == null || apiUrl.isBlank() || apiKey == null || apiKey.isBlank()) {
                 throw new AbortException("Ctrlplane API URL or API Key not configured in Jenkins global settings.");
@@ -121,7 +120,7 @@ public class CtrlplaneGetJobStep extends Step {
                 listener.getLogger().println("Warning: Ctrlplane Agent Workspace ID not configured globally.");
             }
 
-            JobAgent jobAgent = new JobAgent(apiUrl, apiKey, agentName, workspaceId, pollingIntervalSeconds);
+            JobAgent jobAgent = new JobAgent(apiUrl, apiKey, agentName, workspaceId);
 
             Map<String, Object> jobData = jobAgent.getJob(jobUUID);
 

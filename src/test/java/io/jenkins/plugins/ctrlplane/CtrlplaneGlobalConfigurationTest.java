@@ -27,7 +27,6 @@ public class CtrlplaneGlobalConfigurationTest {
     @Test
     public void uiAndStorage() throws Throwable {
         sessions.then(r -> {
-            // Initial state checks
             assertEquals(
                     "default API URL is set initially",
                     CtrlplaneGlobalConfiguration.DEFAULT_API_URL,
@@ -47,7 +46,6 @@ public class CtrlplaneGlobalConfigurationTest {
                     CtrlplaneGlobalConfiguration.DEFAULT_POLLING_INTERVAL_SECONDS,
                     CtrlplaneGlobalConfiguration.get().getPollingIntervalSeconds());
 
-            // Configure values
             HtmlForm config = r.createWebClient().goTo("configure").getFormByName("config");
 
             HtmlTextInput apiUrlBox = config.getInputByName("_.apiUrl");
@@ -67,7 +65,6 @@ public class CtrlplaneGlobalConfigurationTest {
 
             r.submit(config);
 
-            // Verify submitted values
             assertEquals(
                     "API URL was updated",
                     "https://api.example.com",
@@ -90,7 +87,6 @@ public class CtrlplaneGlobalConfigurationTest {
                     CtrlplaneGlobalConfiguration.get().getPollingIntervalSeconds());
         });
 
-        // Verify values persist after restart
         sessions.then(r -> {
             assertEquals(
                     "API URL still there after restart",

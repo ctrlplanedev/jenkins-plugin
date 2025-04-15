@@ -159,7 +159,6 @@ public class CtrlplaneJobCompletionListener extends RunListener<Run<?, ?>> {
         String apiKey = config.getApiKey();
         String agentName = config.getAgentId();
         String agentWorkspaceId = config.getAgentWorkspaceId();
-        int pollingIntervalSeconds = config.getPollingIntervalSeconds();
 
         if (apiUrl == null || apiUrl.isBlank() || apiKey == null || apiKey.isBlank()) {
             LOGGER.error("Cannot create JobAgent: API URL or API Key not configured in Jenkins global settings");
@@ -171,6 +170,6 @@ public class CtrlplaneJobCompletionListener extends RunListener<Run<?, ?>> {
             LOGGER.warn("Agent name not configured, using default: {}", agentName);
         }
 
-        return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId, pollingIntervalSeconds);
+        return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId);
     }
 }
