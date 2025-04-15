@@ -9,6 +9,7 @@ import jenkins.model.Jenkins;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Global configuration for the Ctrlplane Agent plugin.
@@ -115,6 +116,13 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
         save();
     }
 
+    /**
+     * Validates the API URL field from the configuration form.
+     *
+     * @param value The API URL to validate
+     * @return FormValidation result
+     */
+    @POST
     public FormValidation doCheckApiUrl(@QueryParameter String value) {
         if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
             return FormValidation.ok();
@@ -125,6 +133,13 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
         return FormValidation.ok();
     }
 
+    /**
+     * Validates the API Key field from the configuration form.
+     *
+     * @param value The API key to validate
+     * @return FormValidation result
+     */
+    @POST
     public FormValidation doCheckApiKey(@QueryParameter String value) {
         if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
             return FormValidation.ok();
@@ -135,6 +150,13 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
         return FormValidation.ok();
     }
 
+    /**
+     * Validates the Agent ID field from the configuration form.
+     *
+     * @param value The agent ID to validate
+     * @return FormValidation result
+     */
+    @POST
     public FormValidation doCheckAgentId(@QueryParameter String value) {
         if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
             return FormValidation.ok();
@@ -145,22 +167,13 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
         return FormValidation.ok();
     }
 
-    public FormValidation doCheckAgentWorkspaceId(@QueryParameter String value) {
-        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
-            return FormValidation.ok();
-        }
-        if (StringUtils.isEmpty(value)) {
-            return FormValidation.warning("Agent Workspace ID is required for the agent to identify itself.");
-        }
-        try {
-            UUID.fromString(value);
-            return FormValidation.ok();
-        } catch (IllegalArgumentException e) {
-            return FormValidation.error(
-                    "Invalid format: Agent Workspace ID must be a valid UUID (e.g., 123e4567-e89b-12d3-a456-426614174000).");
-        }
-    }
-
+    /**
+     * Validates the polling interval field from the configuration form.
+     *
+     * @param value The polling interval to validate
+     * @return FormValidation result
+     */
+    @POST
     public FormValidation doCheckPollingIntervalSeconds(@QueryParameter String value) {
         if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
             return FormValidation.ok();
@@ -176,6 +189,22 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
             return FormValidation.ok();
         } catch (NumberFormatException e) {
             return FormValidation.error("Polling interval must be a valid integer.");
+        }
+    }
+
+    public FormValidation doCheckAgentWorkspaceId(@QueryParameter String value) {
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return FormValidation.ok();
+        }
+        if (StringUtils.isEmpty(value)) {
+            return FormValidation.warning("Agent Workspace ID is required for the agent to identify itself.");
+        }
+        try {
+            UUID.fromString(value);
+            return FormValidation.ok();
+        } catch (IllegalArgumentException e) {
+            return FormValidation.error(
+                    "Invalid format: Agent Workspace ID must be a valid UUID (e.g., 123e4567-e89b-12d3-a456-426614174000).");
         }
     }
 }

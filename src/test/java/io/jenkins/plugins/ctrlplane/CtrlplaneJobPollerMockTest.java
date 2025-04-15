@@ -33,16 +33,16 @@ public class CtrlplaneJobPollerMockTest {
         }
 
         @Override
-        protected JobAgent createJobAgent(String apiUrl, String apiKey, String agentName, String agentWorkspaceId) {
+        protected JobAgent createJobAgent(
+                String apiUrl, String apiKey, String agentName, String agentWorkspaceId, int pollingIntervalSeconds) {
             return mockJobAgent;
         }
 
-        // Helper method for testing external ID updates
         public void updateJobStatusWithExternalId(JobInfo jobInfo, String status, String trigger, String externalId) {
             Map<String, Object> details = new HashMap<>();
             details.put("trigger", trigger);
             details.put("externalId", externalId);
-            jobAgent.updateJobStatus(jobInfo.jobUUID, status, details);
+            this.mockJobAgent.updateJobStatus(jobInfo.jobUUID, status, details);
         }
     }
 
@@ -52,9 +52,6 @@ public class CtrlplaneJobPollerMockTest {
     public void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         jobPoller = new TestableCtrlplaneJobPoller(jobAgent);
-
-        // Initialize the job agent field explicitly
-        jobPoller.jobAgent = jobAgent;
     }
 
     @Test
@@ -138,6 +135,7 @@ public class CtrlplaneJobPollerMockTest {
         String externalId = "123";
 
         // Capture the arguments passed to updateJobStatus
+        @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> detailsCaptor = ArgumentCaptor.forClass(Map.class);
 
         // When - use our test helper to update the status with external ID

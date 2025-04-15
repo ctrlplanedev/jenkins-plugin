@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +35,12 @@ import org.slf4j.LoggerFactory;
 public class CtrlplaneJobPoller extends AsyncPeriodicWork {
     private static final Logger LOGGER = LoggerFactory.getLogger(CtrlplaneJobPoller.class);
     private final ConcurrentHashMap<String, ActiveJobInfo> activeJenkinsJobs = new ConcurrentHashMap<>();
-    protected JobAgent jobAgent;
+    private JobAgent jobAgent;
+    private String lastApiUrl;
+    private String lastApiKey;
+    private String lastAgentName;
+    private String lastWorkspaceId;
+    private int lastPollingIntervalSeconds;
 
     public CtrlplaneJobPoller() {
         super("Ctrlplane Job Poller");
@@ -100,7 +106,8 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
                 globalConfig.getApiUrl(),
                 globalConfig.getApiKey(),
                 globalConfig.getAgentId(),
-                globalConfig.getAgentWorkspaceId());
+                globalConfig.getAgentWorkspaceId(),
+                globalConfig.getPollingIntervalSeconds());
 
         if (!ctrlConfig.validate()) {
             return null;
@@ -115,9 +122,30 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
      * @return true if initialization and registration are successful, false otherwise.
      */
     private boolean initializeAndRegisterAgent(CtrlplaneConfig config) {
-        if (jobAgent == null) {
-            jobAgent = createJobAgent(config.apiUrl, config.apiKey, config.agentName, config.agentWorkspaceId);
-            LOGGER.debug("Created new JobAgent instance");
+        if (jobAgent == null
+                || configurationChanged(
+                        config.apiUrl,
+                        config.apiKey,
+                        config.agentName,
+                        config.agentWorkspaceId,
+                        config.pollingIntervalSeconds)) {
+            if (jobAgent != null) {
+                LOGGER.info("Configuration changed, re-initializing JobAgent");
+            }
+            jobAgent = createJobAgent(
+                    config.apiUrl,
+                    config.apiKey,
+                    config.agentName,
+                    config.agentWorkspaceId,
+                    config.pollingIntervalSeconds);
+            updateLastConfiguration(
+                    config.apiUrl,
+                    config.apiKey,
+                    config.agentName,
+                    config.agentWorkspaceId,
+                    config.pollingIntervalSeconds);
+            LOGGER.debug(
+                    "Initialized JobAgent instance with polling interval of {} seconds", config.pollingIntervalSeconds);
         }
 
         boolean registered = jobAgent.ensureRegistered();
@@ -134,6 +162,37 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
 
         LOGGER.debug("Polling jobs for registered agent ID: {}", currentAgentId);
         return true;
+    }
+
+    /**
+     * Checks if the current configuration differs from the last used configuration.
+     *
+     * @param apiUrl Current API URL
+     * @param apiKey Current API key
+     * @param agentName Current agent name
+     * @param workspaceId Current workspace ID
+     * @param pollingIntervalSeconds Current polling interval
+     * @return true if any configuration parameters have changed
+     */
+    private boolean configurationChanged(
+            String apiUrl, String apiKey, String agentName, String workspaceId, int pollingIntervalSeconds) {
+        return !Objects.equals(apiUrl, lastApiUrl)
+                || !Objects.equals(apiKey, lastApiKey)
+                || !Objects.equals(agentName, lastAgentName)
+                || !Objects.equals(workspaceId, lastWorkspaceId)
+                || pollingIntervalSeconds != lastPollingIntervalSeconds;
+    }
+
+    /**
+     * Updates tracked configuration values.
+     */
+    private void updateLastConfiguration(
+            String apiUrl, String apiKey, String agentName, String workspaceId, int pollingIntervalSeconds) {
+        lastApiUrl = apiUrl;
+        lastApiKey = apiKey;
+        lastAgentName = agentName;
+        lastWorkspaceId = workspaceId;
+        lastPollingIntervalSeconds = pollingIntervalSeconds;
     }
 
     /**
@@ -598,11 +657,12 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
      * Factory method for creating the JobAgent. Can be overridden for testing.
      * Throws IllegalStateException if required configuration is missing.
      */
-    protected JobAgent createJobAgent(String apiUrl, String apiKey, String agentName, String agentWorkspaceId) {
+    protected JobAgent createJobAgent(
+            String apiUrl, String apiKey, String agentName, String agentWorkspaceId, int pollingIntervalSeconds) {
         if (apiUrl == null || apiUrl.isBlank() || apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Cannot create JobAgent: API URL or API Key is missing.");
         }
-        return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId);
+        return new JobAgent(apiUrl, apiKey, agentName, agentWorkspaceId, pollingIntervalSeconds);
     }
 
     /**
@@ -664,12 +724,15 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
         final String apiKey;
         final String agentName;
         final String agentWorkspaceId;
+        final int pollingIntervalSeconds;
 
-        CtrlplaneConfig(String apiUrl, String apiKey, String agentName, String agentWorkspaceId) {
+        CtrlplaneConfig(
+                String apiUrl, String apiKey, String agentName, String agentWorkspaceId, int pollingIntervalSeconds) {
             this.apiUrl = apiUrl;
             this.apiKey = apiKey;
             this.agentName = agentName;
             this.agentWorkspaceId = agentWorkspaceId;
+            this.pollingIntervalSeconds = pollingIntervalSeconds;
         }
 
         /** Validates that essential configuration fields are present. */
@@ -688,6 +751,11 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
             }
             if (agentWorkspaceId == null || agentWorkspaceId.isBlank()) {
                 LOGGER.warn("Ctrlplane Agent Workspace ID not configured. Agent registration might fail.");
+            }
+            if (pollingIntervalSeconds <= 9) {
+                LOGGER.warn(
+                        "Ctrlplane polling interval is not configured or is non-positive. Using default of 60 seconds.");
+                return false;
             }
             return true;
         }
