@@ -7,8 +7,8 @@ We welcome pull requests! Please follow these steps:
 1.  **Fork the Repository:** Create your own fork of the [ctrlplanedev/jenkins-plugin](https://github.com/ctrlplanedev/jenkins-plugin) repository.
 2.  **Create a Branch:** Create a new branch in your fork for your changes (e.g., `git checkout -b feature/my-new-feature` or `git checkout -b fix/bug-description`).
 3.  **Make Changes:** Implement your fix or feature.
-    *   Adhere to the existing code style. Consider using `mvn spotless:apply verify` to format your code.
-    *   Add unit tests for new functionality or bug fixes if applicable.
+    *   Adhere to the existing code style. Run `mvn spotless:apply` to format your code, and `mvn verify` to check code style and run tests.
+    *   Add unit tests for new functionality or bug fixes, if applicable.
 4.  **Test:** Build the plugin (`mvn clean package`) and test your changes in a local Jenkins instance if possible.
 5.  **Commit:** Commit your changes with clear and concise commit messages.
 6.  **Push:** Push your branch to your fork (`git push origin feature/my-new-feature`).
