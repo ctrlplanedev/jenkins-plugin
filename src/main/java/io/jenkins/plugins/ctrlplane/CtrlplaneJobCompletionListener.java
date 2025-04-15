@@ -12,96 +12,123 @@ import io.jenkins.plugins.ctrlplane.api.JobAgent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Listens for Jenkins job completions and updates the Ctrlplane job status accordingly.
+ * Listens for Jenkins job completions and updates the corresponding Ctrlplane job status.
+ * This provides faster status updates but is less robust against Jenkins restarts
+ * compared to the poller's reconciliation loop.
  */
 @Extension
 public class CtrlplaneJobCompletionListener extends RunListener<Run<?, ?>> {
     private static final Logger LOGGER = LoggerFactory.getLogger(CtrlplaneJobCompletionListener.class);
 
+    /**
+     * Called when a Jenkins job completes.
+     *
+     * @param run      The completed run.
+     * @param listener The task listener.
+     */
     @Override
-    public void onCompleted(Run<?, ?> run, TaskListener listener) {
-        if (run == null) {
-            LOGGER.warn("Received null Run in onCompleted, skipping");
-            return;
-        }
+    public void onCompleted(Run<?, ?> run, @Nonnull TaskListener listener) {
+        LOGGER.debug("onCompleted triggered for run: {}", run.getFullDisplayName());
 
-        // Extract Ctrlplane JOB_ID parameter if present
+        /**
+         * Extract Ctrlplane Job ID from parameters
+         */
         String ctrlplaneJobId = extractJobId(run);
         if (ctrlplaneJobId == null) {
-            // This job wasn't triggered by Ctrlplane, so we don't need to update anything
+            LOGGER.debug(
+                    "No Ctrlplane Job ID found for run {}, likely not a Ctrlplane-triggered job.",
+                    run.getFullDisplayName());
             return;
         }
 
+        UUID jobUUID;
         try {
-            UUID jobUUID = UUID.fromString(ctrlplaneJobId);
-
-            // Get job status based on Jenkins build result
-            String status = getCtrlplaneStatusFromResult(run);
-
-            // Create API client and update job status
-            JobAgent jobAgent = createJobAgent();
-            if (jobAgent != null) {
-                Map<String, Object> details = new HashMap<>();
-
-                // Safely get result string
-                Result result = run.getResult();
-                String resultString = (result != null) ? result.toString() : "UNKNOWN";
-
-                details.put(
-                        "message",
-                        "Jenkins job " + run.getFullDisplayName() + " completed with result: " + resultString);
-                details.put("externalId", String.valueOf(run.getNumber()));
-
-                if (jobAgent.updateJobStatus(jobUUID, status, details)) {
-                    LOGGER.info(
-                            "Successfully updated Ctrlplane job {} status to {} after Jenkins job {} completed",
-                            ctrlplaneJobId,
-                            status,
-                            run.getFullDisplayName());
-                } else {
-                    LOGGER.error(
-                            "Failed to update Ctrlplane job {} status after Jenkins job {} completed",
-                            ctrlplaneJobId,
-                            run.getFullDisplayName());
-                }
-            }
+            jobUUID = UUID.fromString(ctrlplaneJobId);
         } catch (IllegalArgumentException e) {
-            LOGGER.error("Invalid Ctrlplane job ID format: {}", ctrlplaneJobId, e);
-        } catch (Exception e) {
-            LOGGER.error("Error updating Ctrlplane job status for job ID {}: {}", ctrlplaneJobId, e.getMessage(), e);
+            LOGGER.error("Invalid Ctrlplane job ID format found in parameter: {}", ctrlplaneJobId, e);
+            return;
+        }
+
+        /**
+         * Get job status based on Jenkins build result
+         */
+        String status = getCtrlplaneStatusFromResult(run);
+
+        /**
+         * Create API client
+         */
+        JobAgent jobAgent = createJobAgent();
+        if (jobAgent == null) {
+            /**
+             * createJobAgent logs the reason (config missing)
+             */
+            LOGGER.error("Cannot update Ctrlplane status for job {}: JobAgent could not be created.", ctrlplaneJobId);
+            return;
+        }
+
+        /**
+         * Prepare details for the update
+         */
+        Map<String, Object> details = new HashMap<>();
+        Result result = run.getResult();
+        String resultString = (result != null) ? result.toString() : "UNKNOWN";
+        details.put("message", "Jenkins job " + run.getFullDisplayName() + " completed with result: " + resultString);
+        details.put("externalId", String.valueOf(run.getNumber()));
+        boolean success = jobAgent.updateJobStatus(jobUUID, status, details);
+
+        if (success) {
+            LOGGER.info(
+                    "Successfully updated Ctrlplane job {} status to {} via listener after Jenkins job {} completed",
+                    ctrlplaneJobId,
+                    status,
+                    run.getFullDisplayName());
+        } else {
+            LOGGER.error(
+                    "Failed attempt to update Ctrlplane job {} status via listener after Jenkins job {} completed (check JobAgent logs for API errors)",
+                    ctrlplaneJobId,
+                    run.getFullDisplayName());
         }
     }
 
     /**
      * Maps Jenkins build result to Ctrlplane job status.
+     *
+     * @param run The Jenkins run.
+     * @return The corresponding Ctrlplane status string ("successful", "failure", "cancelled", "in_progress").
      */
     private String getCtrlplaneStatusFromResult(Run<?, ?> run) {
         if (run == null) {
-            return "failure"; // Treat null run as failure
+            return "failure";
         }
 
         Result result = run.getResult();
         if (result == null) {
-            return "in_progress"; // Should ideally not happen in onCompleted
+            LOGGER.warn(
+                    "Run {} completed but getResult() returned null. Reporting as failure.", run.getFullDisplayName());
+            return "failure";
         }
 
         String resultString = result.toString();
 
         switch (resultString) {
             case "SUCCESS":
+            case "UNSTABLE": // Treat UNSTABLE as successful for Ctrlplane status
                 return "successful";
-            case "UNSTABLE":
-                return "successful"; // Consider unstable builds as successful but with warnings
             case "FAILURE":
                 return "failure";
             case "ABORTED":
                 return "cancelled";
             default:
-                return "failure"; // Default to failure for unknown states
+                LOGGER.warn(
+                        "Unknown Jenkins result '{}' for run {}, reporting as failure.",
+                        resultString,
+                        run.getFullDisplayName());
+                return "failure";
         }
     }
 
@@ -128,11 +155,9 @@ public class CtrlplaneJobCompletionListener extends RunListener<Run<?, ?>> {
      */
     private JobAgent createJobAgent() {
         CtrlplaneGlobalConfiguration config = CtrlplaneGlobalConfiguration.get();
-
-        // Config should never be null as it's a singleton, but let's be defensive
         String apiUrl = config.getApiUrl();
         String apiKey = config.getApiKey();
-        String agentName = config.getAgentId(); // This is the agent name/id in the config
+        String agentName = config.getAgentId();
         String agentWorkspaceId = config.getAgentWorkspaceId();
 
         if (apiUrl == null || apiUrl.isBlank() || apiKey == null || apiKey.isBlank()) {

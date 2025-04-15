@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -18,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import jenkins.model.Jenkins;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,20 +26,19 @@ import org.slf4j.LoggerFactory;
  */
 public class JobAgent {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobAgent.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper(); // Shared Jackson mapper
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Use Java 11+ HttpClient
     private static final HttpClient httpClient = HttpClient.newBuilder()
-            .version(HttpClient.Version.HTTP_1_1) // Or HTTP_2 if server supports
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
     private final String apiUrl;
     private final String apiKey;
     private final String name;
-    private final String agentWorkspaceId; // Added
+    private final String agentWorkspaceId;
 
-    private final AtomicReference<String> agentIdRef = new AtomicReference<>(null); // Store agent ID directly
+    private final AtomicReference<String> agentIdRef = new AtomicReference<>(null);
 
     /**
      * Creates a new JobAgent.
@@ -66,35 +63,27 @@ public class JobAgent {
      */
     public boolean ensureRegistered() {
         if (agentIdRef.get() != null) {
-            return true; // Already registered in this session
+            return true;
         }
-
-        // Use PATCH /v1/job-agents/name for upsert
         String path = "/v1/job-agents/name";
-        // Map<String, Object> config = createAgentConfig(); // Config not sent in this request
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("name", this.name);
-        requestBody.put("type", "jenkins"); // Add agent type
-        // Workspace ID is required according to the Go spec
+        requestBody.put("type", "jenkins");
         if (this.agentWorkspaceId != null && !this.agentWorkspaceId.isBlank()) {
             requestBody.put("workspaceId", this.agentWorkspaceId);
         } else {
             LOGGER.error("Cannot register agent: Workspace ID is missing.");
-            return false; // Workspace ID is required
+            return false;
         }
-        // Config map is not part of this payload
-        // requestBody.put("config", config);
 
-        // Make the PATCH request, parse the response to get the agent ID
         AgentResponse agentResponse = makeHttpRequest("PATCH", path, requestBody, AgentResponse.class);
 
         if (agentResponse != null && agentResponse.getId() != null) {
             String agentId = agentResponse.getId();
-            agentIdRef.set(agentId); // Set the ID directly from the response
+            agentIdRef.set(agentId);
             LOGGER.info("Agent upsert via PATCH {} succeeded. Agent ID: {}", path, agentId);
             return true;
         }
-        // Log error based on whether response was null or ID was null
         if (agentResponse == null) {
             LOGGER.error(
                     "Failed to upsert agent {} via PATCH {}. Request failed or returned unexpected response.",
@@ -108,37 +97,6 @@ public class JobAgent {
     }
 
     /**
-     * Creates the agent configuration for registration.
-     *
-     * @return the agent configuration
-     */
-    private Map<String, Object> createAgentConfig() {
-        Map<String, Object> config = new HashMap<>();
-        // Temporarily hardcoded to exec-windows to make sure it is wokring.
-        config.put("type", "exec-windows");
-        // Consider adding plugin version
-        // config.put("version", "...");
-
-        try {
-            Jenkins jenkins = Jenkins.get();
-            String rootUrl = jenkins.getRootUrl();
-            if (rootUrl != null) {
-                config.put("jenkinsUrl", rootUrl);
-            }
-            // Jenkins.VERSION is usually available
-            config.put("jenkinsVersion", Jenkins.VERSION);
-        } catch (Exception e) { // Catch broader exceptions for robustness
-            LOGGER.warn("Could not gather Jenkins instance information for agent config", e);
-        }
-
-        // Add system/environment info if desired
-        // config.put("os", System.getProperty("os.name"));
-        // config.put("arch", System.getProperty("os.arch"));
-
-        return config;
-    }
-
-    /**
      * Gets the agent ID as a string if the agent is registered.
      *
      * @return the agent ID as a string, or null if not registered
@@ -148,50 +106,49 @@ public class JobAgent {
     }
 
     /**
-     * Gets the next jobs for this agent.
+     * Gets the next jobs for this agent from the Ctrlplane API.
+     * Handles agent registration if needed and validates the response format.
      *
-     * @return a list of jobs (represented as Maps), empty if none are available or if the agent is not registered
+     * @return a list of jobs (represented as Maps), empty if none are available, if the agent is not registered,
+     *         or if there was an error communicating with the API
      */
     public List<Map<String, Object>> getNextJobs() {
         String agentId = agentIdRef.get();
+
         if (agentId == null) {
-            // ensureRegistered will now attempt registration AND set the ID if successful.
             if (!ensureRegistered()) {
-                // ensureRegistered logs the specific error (request failed or no ID in response)
                 LOGGER.error("Cannot get jobs: Agent registration/upsert failed or did not provide an ID.");
                 return Collections.emptyList();
             }
-            // Re-check if agentId was set by ensureRegistered
+
             agentId = agentIdRef.get();
+
             if (agentId == null) {
-                // This condition should technically not be reachable if ensureRegistered returned true,
-                // as true implies the agentIdRef was set. Log an internal error if it happens.
                 LOGGER.error(
                         "Internal error: ensureRegistered returned true but agent ID is still null. Cannot get jobs.");
                 return Collections.emptyList();
             }
         }
 
-        // Use the correct endpoint from the API spec: /v1/job-agents/{agentId}/queue/next
         String path = String.format("/v1/job-agents/%s/queue/next", agentId);
 
-        // The response structure is different - it has a "jobs" property containing the array
         Map<String, Object> response = makeHttpRequest("GET", path, null, new TypeReference<Map<String, Object>>() {});
 
-        if (response != null && response.containsKey("jobs")) {
-            try {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> jobs = (List<Map<String, Object>>) response.get("jobs");
-                LOGGER.debug("Successfully fetched {} jobs from Ctrlplane for agent: {}", jobs.size(), agentId);
-                return jobs;
-            } catch (ClassCastException e) {
-                LOGGER.error("Unexpected response format from jobs endpoint: {}", e.getMessage());
-                return Collections.emptyList();
-            }
-        } else {
+        if (response == null || !response.containsKey("jobs")) {
             LOGGER.warn("Failed to fetch jobs or no jobs available for agent: {}", agentId);
-            return Collections.emptyList(); // Return empty list on failure or empty response
+            return Collections.emptyList();
         }
+
+        Object jobsObj = response.get("jobs");
+        if (!(jobsObj instanceof List)) {
+            LOGGER.error("Unexpected response format from jobs endpoint: 'jobs' is not a List");
+            return Collections.emptyList();
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> jobs = (List<Map<String, Object>>) jobsObj;
+        LOGGER.debug("Successfully fetched {} jobs from Ctrlplane for agent: {}", jobs.size(), agentId);
+        return jobs;
     }
 
     /**
@@ -209,51 +166,75 @@ public class JobAgent {
         }
 
         String path = String.format("/v1/jobs/%s", jobId);
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("status", status);
+        Map<String, Object> requestBody = buildJobUpdatePayload(status, details);
 
-        // Extract message and externalId from details if present
-        String message = null;
-        String externalId = null;
-
-        if (details != null && !details.isEmpty()) {
-            // Check for external ID in details
-            if (details.containsKey("externalId")) {
-                externalId = details.get("externalId").toString();
-                requestBody.put("externalId", externalId);
-            }
-
-            // Extract message if present, otherwise use trigger as message
-            if (details.containsKey("message")) {
-                message = details.get("message").toString();
-            } else if (details.containsKey("trigger")) {
-                message = "Triggered by: " + details.get("trigger");
-            } else if (details.containsKey("reason")) {
-                message = details.get("reason").toString();
-            }
-
-            if (message != null) {
-                requestBody.put("message", message);
-            }
-        }
-
-        // Check for ctrlplane/links metadata
-        if (details != null && details.containsKey("ctrlplane/links")) {
-            Object linksObj = details.get("ctrlplane/links");
-            if (linksObj instanceof Map) {
-                // Assuming the value is Map<String, String>, but API expects Map<String, Object>
-                // No explicit cast needed as Map is compatible.
-                requestBody.put("ctrlplane/links", linksObj);
-            } else {
-                LOGGER.warn(
-                        "Value for 'ctrlplane/links' in details map is not a Map for job {}. Skipping links.", jobId);
-            }
-        }
-
-        // Use PATCH method according to the API spec
         Integer responseCode = makeHttpRequestAndGetCode("PATCH", path, requestBody);
 
         boolean success = responseCode != null && responseCode >= 200 && responseCode < 300;
+        logStatusUpdateResult(success, jobId, status, responseCode);
+        return success;
+    }
+
+    /**
+     * Builds the payload for job status updates.
+     *
+     * @param status The status to set for the job
+     * @param details Additional details to include in the update
+     * @return A map containing the formatted payload for the API request
+     */
+    private Map<String, Object> buildJobUpdatePayload(String status, Map<String, Object> details) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("status", status);
+
+        if (details == null || details.isEmpty()) {
+            return payload;
+        }
+
+        if (details.containsKey("externalId")) {
+            payload.put("externalId", details.get("externalId").toString());
+        }
+
+        String message = extractMessage(details);
+        if (message != null) {
+            payload.put("message", message);
+        }
+
+        if (details.containsKey("ctrlplane/links") && details.get("ctrlplane/links") instanceof Map) {
+            payload.put("ctrlplane/links", details.get("ctrlplane/links"));
+        }
+
+        return payload;
+    }
+
+    /**
+     * Extracts message from details using priority order.
+     *
+     * @param details Map containing potential message sources
+     * @return The extracted message string, or null if no message source is found
+     */
+    private String extractMessage(Map<String, Object> details) {
+        String[] messageSources = {"message", "trigger", "reason"};
+
+        for (String source : messageSources) {
+            if (details.containsKey(source)) {
+                return source.equals("trigger")
+                        ? "Triggered by: " + details.get(source)
+                        : details.get(source).toString();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Logs the result of a status update.
+     *
+     * @param success Whether the update was successful
+     * @param jobId The UUID of the job that was updated
+     * @param status The status that was set
+     * @param responseCode The HTTP response code received
+     */
+    private void logStatusUpdateResult(boolean success, UUID jobId, String status, Integer responseCode) {
         if (success) {
             LOGGER.info("Successfully updated status for job {} to {}", jobId, status);
         } else {
@@ -263,14 +244,13 @@ public class JobAgent {
                     status,
                     responseCode != null ? responseCode : "N/A");
         }
-        return success;
     }
 
     /**
-     * Gets the details of a specific job by its UUID.
+     * Retrieves job details from the Ctrlplane API by job ID.
      *
-     * @param jobId The UUID of the job to retrieve.
-     * @return A map containing the job details, or null if the job is not found or an error occurs.
+     * @param jobId UUID identifier of the job to fetch
+     * @return Map containing job data or null if the job cannot be retrieved
      */
     public Map<String, Object> getJob(UUID jobId) {
         if (jobId == null) {
@@ -281,129 +261,157 @@ public class JobAgent {
         String path = String.format("/v1/jobs/%s", jobId);
         LOGGER.debug("Attempting to GET job details from path: {}", path);
 
-        // Use the existing makeHttpRequest helper that handles generic Maps
-        try {
-            // The response for GET /v1/jobs/{jobId} is the Job object directly (Map)
-            Map<String, Object> jobData =
-                    makeHttpRequest("GET", path, null, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> jobData = makeHttpRequest("GET", path, null, new TypeReference<Map<String, Object>>() {});
 
-            if (jobData != null) {
-                LOGGER.info("Successfully retrieved details for job {}", jobId);
-                return jobData;
-            } else {
-                // makeHttpRequest logs errors, but we can add context here
-                LOGGER.warn("Failed to retrieve details for job {}, makeHttpRequest returned null.", jobId);
-                return null;
-            }
-        } catch (Exception e) {
-            // Catch any unexpected exceptions during the process
-            LOGGER.error("Exception occurred while retrieving job details for job {}: {}", jobId, e.getMessage(), e);
+        if (jobData == null) {
+            LOGGER.warn("Failed to retrieve details for job {}", jobId);
             return null;
         }
+
+        LOGGER.info("Successfully retrieved details for job {}", jobId);
+        return jobData;
     }
 
     // --- Internal HTTP Helper Methods (using java.net.http) ---
 
     /**
-     * Makes an HTTP request and parses the JSON response body.
+     * Makes an HTTP request and deserializes the JSON response to a specific class.
      *
-     * @param method       HTTP method (GET, POST, PUT, PATCH, etc.)
-     * @param path         API endpoint path
-     * @param requestBody  Object to serialize as JSON body (null for methods without body)
-     * @param responseType Class of the expected response object
-     * @return Deserialized response object, or null on error
+     * @param method HTTP method (GET, POST, PUT, PATCH, etc.)
+     * @param path API endpoint path
+     * @param requestBody Object to serialize as JSON request body (null for methods without body)
+     * @param responseType Class to deserialize the JSON response into
+     * @return Deserialized response object, or null if an error occurs
      */
     private <T> T makeHttpRequest(String method, String path, Object requestBody, Class<T> responseType) {
+        HttpResponse<InputStream> response = executeRequest(method, path, requestBody);
+        if (response == null) {
+            return null;
+        }
+
         try {
-            HttpRequest.Builder requestBuilder = buildRequest(path, method, requestBody);
-            HttpRequest request = requestBuilder.build();
-
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
             return handleResponse(response, responseType);
-        } catch (URISyntaxException | IOException | InterruptedException e) {
-            LOGGER.error("Error during {} request to {}{}: {}", method, this.apiUrl, path, e.getMessage(), e);
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt(); // Restore interrupt status
-            }
+        } catch (IOException e) {
+            LOGGER.error("Error processing response from {} {}: {}", method, path, e.getMessage(), e);
             return null;
         }
     }
 
     /**
-     * Overload for handling generic types like List<T>.
+     * Makes an HTTP request and deserializes the JSON response to a generic type.
+     *
+     * @param method HTTP method (GET, POST, PUT, PATCH, etc.)
+     * @param path API endpoint path
+     * @param requestBody Object to serialize as JSON request body (null for methods without body)
      * @param responseType TypeReference describing the expected response type
+     * @return Deserialized response object, or null if an error occurs
      */
     private <T> T makeHttpRequest(String method, String path, Object requestBody, TypeReference<T> responseType) {
+        HttpResponse<InputStream> response = executeRequest(method, path, requestBody);
+        if (response == null) {
+            return null;
+        }
+
         try {
-            HttpRequest.Builder requestBuilder = buildRequest(path, method, requestBody);
-            HttpRequest request = requestBuilder.build();
-
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
             return handleResponse(response, responseType);
-        } catch (URISyntaxException | IOException | InterruptedException e) {
-            LOGGER.error("Error during {} request to {}{}: {}", method, this.apiUrl, path, e.getMessage(), e);
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        } catch (IOException e) {
+            LOGGER.error("Error processing response from {} {}: {}", method, path, e.getMessage(), e);
             return null;
         }
     }
 
     /**
-     * Makes an HTTP request and returns only the response code.
+     * Makes an HTTP request and returns only the response HTTP status code.
+     *
      * @param method HTTP method (e.g., PUT, POST)
      * @param path API endpoint path
-     * @param requestBody Object to serialize as JSON body
-     * @return HTTP status code, or null on error
+     * @param requestBody Object to serialize as JSON request body
+     * @return HTTP status code, or null if an error occurs
      */
     private Integer makeHttpRequestAndGetCode(String method, String path, Object requestBody) {
         try {
-            HttpRequest.Builder requestBuilder = buildRequest(path, method, requestBody);
-            HttpRequest request = requestBuilder.build();
-
-            // Send request and discard body, just get status code
+            HttpRequest request = buildRequest(path, method, requestBody).build();
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             int statusCode = response.statusCode();
 
-            // Log non-2xx responses slightly differently here if needed, or rely on caller
             if (statusCode < 200 || statusCode >= 300) {
                 LOGGER.warn("HTTP request to {}{} returned non-success status: {}", this.apiUrl, path, statusCode);
             }
-            return statusCode;
 
-        } catch (URISyntaxException | IOException | InterruptedException e) {
-            LOGGER.error(
-                    "Error during {} request (status check) to {}{}: {}", method, this.apiUrl, path, e.getMessage(), e);
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+            return statusCode;
+        } catch (Exception e) {
+            handleRequestException(method, path, e);
             return null;
+        }
+    }
+
+    /**
+     * Executes an HTTP request and returns the response.
+     *
+     * @param method HTTP method to use
+     * @param path API endpoint path
+     * @param requestBody Request body to send (may be null)
+     * @return HTTP response with input stream, or null if request failed
+     */
+    private HttpResponse<InputStream> executeRequest(String method, String path, Object requestBody) {
+        try {
+            HttpRequest request = buildRequest(path, method, requestBody).build();
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        } catch (Exception e) {
+            handleRequestException(method, path, e);
+            return null;
+        }
+    }
+
+    /**
+     * Handles exceptions from HTTP requests in a consistent way.
+     */
+    private void handleRequestException(String method, String path, Exception e) {
+        LOGGER.error("Error during {} request to {}{}: {}", method, this.apiUrl, path, e.getMessage(), e);
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
         }
     }
 
     // --- URI and Request Building ---
-    private URI buildUri(String path) throws URISyntaxException, MalformedURLException {
+    /**
+     * Builds a URI by properly combining the API URL with the given path.
+     *
+     * @param path API endpoint path to append
+     * @return Fully formed URI for the API request
+     * @throws URISyntaxException if the resulting URI is invalid
+     */
+    private URI buildUri(String path) throws URISyntaxException {
         String cleanApiUrl =
                 this.apiUrl.endsWith("/") ? this.apiUrl.substring(0, this.apiUrl.length() - 1) : this.apiUrl;
         String cleanPath = path.startsWith("/") ? path : "/" + path;
+        String fullUrl;
 
-        // Ensure /api/v1 structure
-        String finalUrlString;
         if (cleanApiUrl.endsWith("/api")) {
-            finalUrlString = cleanApiUrl + cleanPath; // Assumes path starts with /v1
+            fullUrl = cleanApiUrl + cleanPath;
         } else {
-            finalUrlString = cleanApiUrl + "/api" + cleanPath;
+            fullUrl = cleanApiUrl + "/api" + cleanPath;
         }
-        return new URI(finalUrlString);
+
+        return new URI(fullUrl);
     }
 
+    /**
+     * Builds an HTTP request with proper headers and body for the Ctrlplane API.
+     *
+     * @param path API endpoint path
+     * @param method HTTP method to use (GET, POST, etc.)
+     * @param requestBody Object to serialize as request body (may be null)
+     * @return Configured HTTP request builder
+     * @throws URISyntaxException if the URI is invalid
+     * @throws IOException if request body serialization fails
+     */
     private HttpRequest.Builder buildRequest(String path, String method, Object requestBody)
-            throws URISyntaxException, IOException, MalformedURLException {
+            throws URISyntaxException, IOException {
 
         HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.noBody();
-        if (requestBody != null && requiresBody(method)) {
+
+        if (requestBody != null && (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"))) {
             byte[] jsonBytes = objectMapper.writeValueAsBytes(requestBody);
             bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(jsonBytes);
         }
@@ -413,56 +421,77 @@ public class JobAgent {
                 .header("X-API-Key", this.apiKey)
                 .header("Content-Type", "application/json; utf-8")
                 .header("Accept", "application/json")
-                .timeout(Duration.ofSeconds(15)) // Request timeout
+                .timeout(Duration.ofSeconds(15))
                 .method(method, bodyPublisher);
-    }
-
-    /** Helper to determine if a method typically sends a body */
-    private boolean requiresBody(String method) {
-        return method.equals("POST") || method.equals("PUT") || method.equals("PATCH");
     }
 
     // --- Response Handling ---
 
+    /**
+     * Handles HTTP response by deserializing JSON content to a specified class.
+     *
+     * @param response HTTP response containing JSON data
+     * @param responseType Class to deserialize JSON into
+     * @return Deserialized object of requested type or null if response isn't successful
+     * @throws IOException if JSON parsing fails
+     */
     private <T> T handleResponse(HttpResponse<InputStream> response, Class<T> responseType) throws IOException {
         int statusCode = response.statusCode();
-        if (statusCode >= 200 && statusCode < 300) {
-            try (InputStream is = response.body()) {
-                if (statusCode == 204 || is == null) { // 204 No Content or null body
-                    // Try creating a default instance if possible and sensible
-                    try {
-                        return responseType.getDeclaredConstructor().newInstance();
-                    } catch (Exception e) {
-                        LOGGER.debug("Cannot instantiate default for empty response type {}", responseType.getName());
-                        return null;
-                    }
-                }
-                return objectMapper.readValue(is, responseType);
-            }
-        } else {
+
+        if (statusCode < 200 || statusCode >= 300) {
             handleErrorResponse(response, statusCode);
             return null;
         }
+
+        try (InputStream is = response.body()) {
+            if (statusCode == 204 || is == null) {
+                try {
+                    return responseType.getDeclaredConstructor().newInstance();
+                } catch (Exception e) {
+                    LOGGER.debug("Cannot instantiate default for empty response type {}", responseType.getName());
+                    return null;
+                }
+            }
+
+            return objectMapper.readValue(is, responseType);
+        }
     }
 
+    /**
+     * Handles HTTP response by deserializing JSON content to a specified generic type.
+     *
+     * @param response HTTP response containing JSON data
+     * @param responseType TypeReference describing the target generic type
+     * @return Deserialized object of requested type or null if response isn't successful
+     * @throws IOException if JSON parsing fails
+     */
     private <T> T handleResponse(HttpResponse<InputStream> response, TypeReference<T> responseType) throws IOException {
         int statusCode = response.statusCode();
-        if (statusCode >= 200 && statusCode < 300) {
-            try (InputStream is = response.body()) {
-                if (statusCode == 204 || is == null) { // 204 No Content or null body
-                    return null; // Cannot default instantiate generics easily
-                }
-                return objectMapper.readValue(is, responseType);
-            }
-        } else {
+
+        if (statusCode < 200 || statusCode >= 300) {
             handleErrorResponse(response, statusCode);
             return null;
         }
+
+        try (InputStream is = response.body()) {
+            if (statusCode == 204 || is == null) {
+                return null;
+            }
+
+            return objectMapper.readValue(is, responseType);
+        }
     }
 
+    /**
+     * Logs error details from HTTP responses with error status codes.
+     *
+     * @param response HTTP response with error status
+     * @param statusCode HTTP status code
+     */
     private void handleErrorResponse(HttpResponse<InputStream> response, int statusCode) {
         String errorBody = "<Could not read error body>";
-        try (InputStream es = response.body()) { // Body might contain error details even on non-2xx
+
+        try (InputStream es = response.body()) {
             if (es != null) {
                 errorBody = new String(es.readAllBytes(), StandardCharsets.UTF_8);
             }
@@ -470,11 +499,7 @@ public class JobAgent {
             LOGGER.warn("Could not read error response body: {}", e.getMessage());
         }
 
-        LOGGER.error(
-                "HTTP Error: {} - URL: {} - Response: {}",
-                statusCode,
-                response.uri(), // Use URI from response
-                errorBody);
+        LOGGER.error("HTTP Error: {} - URL: {} - Response: {}", statusCode, response.uri(), errorBody);
     }
 
     // --- Simple Inner Class for Agent Registration Response ---

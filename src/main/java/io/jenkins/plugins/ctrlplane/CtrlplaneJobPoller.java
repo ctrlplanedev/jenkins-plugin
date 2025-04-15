@@ -33,12 +33,9 @@ import org.slf4j.LoggerFactory;
 @Extension
 public class CtrlplaneJobPoller extends AsyncPeriodicWork {
     private static final Logger LOGGER = LoggerFactory.getLogger(CtrlplaneJobPoller.class);
-
     private final ConcurrentHashMap<String, ActiveJobInfo> activeJenkinsJobs = new ConcurrentHashMap<>();
-
     protected JobAgent jobAgent;
 
-    /** Constructor. */
     public CtrlplaneJobPoller() {
         super("Ctrlplane Job Poller");
     }
@@ -76,7 +73,6 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
 
         reconcileInProgressJobs();
 
-        // If Jenkins is shutting down, don't poll for or trigger new jobs
         if (jenkins.isQuietingDown()) {
             LOGGER.info("Jenkins is quieting down, skipping polling for new Ctrlplane jobs.");
             return;
@@ -199,93 +195,127 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
                 continue;
             }
 
+            boolean removeJob;
             if (activeJob.jenkinsBuildNumber < 0) {
-                Queue.Item item = Jenkins.get().getQueue().getItem(activeJob.queueId);
-                if (item == null) {
-                    LOGGER.debug(
-                            "Queue item {} for Ctrlplane job {} is no longer in queue. Will check for Run later.",
-                            activeJob.queueId,
-                            ctrlplaneJobId);
-                    continue;
-                } else if (item.getFuture().isCancelled()) {
-                    LOGGER.warn(
-                            "Queue item {} for Ctrlplane job {} was cancelled. Assuming cancelled.",
-                            activeJob.queueId,
-                            ctrlplaneJobId);
-                    updateCtrlplaneJobStatus(
-                            ctrlplaneJobId,
-                            activeJob.ctrlplaneJobUUID,
-                            "cancelled",
-                            Map.of("message", "Jenkins queue item cancelled"));
-                    iterator.remove();
-                    continue;
-                } else {
-                    // Check if build exists but skip using result for now
-                    jenkinsJob.getBuildByNumber(jenkinsJob.getNextBuildNumber() - 1);
-                    LOGGER.debug(
-                            "Build for Ctrlplane job {} (Queue ID {}) is still pending or Run not easily available.",
-                            ctrlplaneJobId,
-                            activeJob.queueId);
-                    continue;
-                }
+                removeJob = reconcileQueuedJob(activeJob);
+            } else {
+                removeJob = reconcileRunningOrCompletedJob(jenkinsJob, activeJob);
             }
 
-            Run<?, ?> run = jenkinsJob.getBuildByNumber(activeJob.jenkinsBuildNumber);
-            if (run == null) {
-                LOGGER.warn(
-                        "Jenkins build #{} for job '{}' (Ctrlplane job {}) not found during reconciliation, despite having build number. Assuming failure.",
-                        activeJob.jenkinsBuildNumber,
-                        activeJob.jenkinsJobName,
-                        ctrlplaneJobId);
-                updateCtrlplaneJobStatus(
-                        ctrlplaneJobId,
-                        activeJob.ctrlplaneJobUUID,
-                        "failure",
-                        Map.of(
-                                "message",
-                                "Jenkins build not found during reconciliation",
-                                "externalId",
-                                String.valueOf(activeJob.jenkinsBuildNumber)));
+            if (removeJob) {
                 iterator.remove();
-                continue;
             }
-
-            if (run.isBuilding()) {
-                LOGGER.debug(
-                        "Jenkins job '{}' #{} (Ctrlplane job {}) is still running.",
-                        activeJob.jenkinsJobName,
-                        activeJob.jenkinsBuildNumber,
-                        ctrlplaneJobId);
-                continue;
-            }
-
-            Result result = run.getResult();
-            if (result == null) {
-                return;
-            }
-
-            String finalStatus = "failure";
-            if (result.isBetterOrEqualTo(Result.SUCCESS)) {
-                finalStatus = "successful";
-            }
-
-            if (result.isCompleteBuild() && result == Result.ABORTED) {
-                finalStatus = "cancelled";
-            }
-
-            String message = "Jenkins job " + run.getFullDisplayName() + " completed with result: " + result.toString();
-            LOGGER.info(
-                    "Reconciling completed Jenkins job '{}' #{} (Ctrlplane job {}). Updating status to {}",
-                    activeJob.jenkinsJobName,
-                    activeJob.jenkinsBuildNumber,
-                    ctrlplaneJobId,
-                    finalStatus);
-
-            Map<String, Object> details = buildCompletionDetails(activeJob, run, message);
-            updateCtrlplaneJobStatus(ctrlplaneJobId, activeJob.ctrlplaneJobUUID, finalStatus, details);
-            iterator.remove();
         }
         LOGGER.debug("Finished reconciling job statuses.");
+    }
+
+    /**
+     * Reconciles the state of a job that is believed to be in the Jenkins queue.
+     *
+     * @param activeJob The job information being tracked.
+     * @return {@code true} if the job reached a final state (e.g., cancelled) and should be removed from tracking,
+     *         {@code false} otherwise (still queued or state indeterminate).
+     */
+    private boolean reconcileQueuedJob(ActiveJobInfo activeJob) {
+        Queue.Item item = Jenkins.get().getQueue().getItem(activeJob.queueId);
+
+        if (item == null) {
+            // Item not in queue anymore. Might have started, might have been deleted.
+            // The main loop will check for a Run using the build number next time (if onStarted updated it).
+            // Or if onStarted was missed (e.g., restart), the main loop might find the Run directly.
+            LOGGER.debug(
+                    "Queue item {} for Ctrlplane job {} is no longer in queue. Will check for Run later.",
+                    activeJob.queueId,
+                    activeJob.ctrlplaneJobUUID); // Log UUID for Ctrlplane context
+            return false;
+        }
+
+        if (item.getFuture().isCancelled()) {
+            LOGGER.warn(
+                    "Queue item {} for Ctrlplane job {} was cancelled.", activeJob.queueId, activeJob.ctrlplaneJobUUID);
+            updateCtrlplaneJobStatus(
+                    activeJob.ctrlplaneJobUUID.toString(), // Need String ID here
+                    activeJob.ctrlplaneJobUUID,
+                    "cancelled",
+                    Map.of("message", "Jenkins queue item cancelled"));
+            return true;
+        }
+
+        LOGGER.debug(
+                "Job {} (Queue ID {}) is still pending in the Jenkins queue.",
+                activeJob.ctrlplaneJobUUID,
+                activeJob.queueId);
+        return false;
+    }
+
+    /**
+     * Reconciles the state of a job that has potentially started running or has completed.
+     *
+     * @param jenkinsJob The Jenkins Job object.
+     * @param activeJob The job information being tracked.
+     * @return {@code true} if the job reached a final state (completed, failed) and should be removed from tracking,
+     *         {@code false} otherwise (still running or state indeterminate).
+     */
+    private boolean reconcileRunningOrCompletedJob(Job<?, ?> jenkinsJob, ActiveJobInfo activeJob) {
+        Run<?, ?> run = jenkinsJob.getBuildByNumber(activeJob.jenkinsBuildNumber);
+
+        if (run == null) {
+            LOGGER.warn(
+                    "Jenkins build #{} for job '{}' (Ctrlplane job {}) not found during reconciliation, despite having build number. Assuming failure.",
+                    activeJob.jenkinsBuildNumber,
+                    activeJob.jenkinsJobName,
+                    activeJob.ctrlplaneJobUUID);
+            updateCtrlplaneJobStatus(
+                    activeJob.ctrlplaneJobUUID.toString(), // Need String ID here
+                    activeJob.ctrlplaneJobUUID,
+                    "failure",
+                    Map.of(
+                            "message",
+                            "Jenkins build not found during reconciliation",
+                            "externalId",
+                            String.valueOf(activeJob.jenkinsBuildNumber)));
+            return true;
+        }
+
+        if (run.isBuilding()) {
+            LOGGER.debug(
+                    "Jenkins job '{}' #{} (Ctrlplane job {}) is still running.",
+                    activeJob.jenkinsJobName,
+                    activeJob.jenkinsBuildNumber,
+                    activeJob.ctrlplaneJobUUID);
+            return false;
+        }
+
+        Result result = run.getResult();
+        if (result == null) {
+            LOGGER.debug(
+                    "Jenkins build #{} for job '{}' (Ctrlplane job {}) is not building but result is null. Checking again next cycle.",
+                    activeJob.jenkinsBuildNumber,
+                    activeJob.jenkinsJobName,
+                    activeJob.ctrlplaneJobUUID);
+            return false;
+        }
+
+        String finalStatus = "failure";
+        if (result.isBetterOrEqualTo(Result.SUCCESS)) {
+            finalStatus = "successful";
+        } else if (result == Result.ABORTED) {
+            finalStatus = "cancelled";
+        }
+
+        String message = "Jenkins job " + run.getFullDisplayName() + " completed with result: " + result.toString();
+        LOGGER.info(
+                "Reconciling completed Jenkins job '{}' #{} (Ctrlplane job {}). Updating status to {}",
+                activeJob.jenkinsJobName,
+                activeJob.jenkinsBuildNumber,
+                activeJob.ctrlplaneJobUUID,
+                finalStatus);
+
+        Map<String, Object> details = buildCompletionDetails(activeJob, run, message);
+        updateCtrlplaneJobStatus(
+                activeJob.ctrlplaneJobUUID.toString(), activeJob.ctrlplaneJobUUID, finalStatus, details);
+
+        return true;
     }
 
     /**
@@ -333,7 +363,6 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
         }
 
         triggerJenkinsJob(jobInfo, stats);
-
         updateJobStatusWithInitialLink(jobInfo);
     }
 
@@ -496,7 +525,6 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
         LOGGER.error("Error processing Ctrlplane job ID '{}': {}", initialJobIdGuess, e.getMessage(), e);
         stats.errors++;
 
-        // Attempt to get a valid jobId and jobUUID to update status
         Object idObj = jobMap.get("id");
         if (!(idObj instanceof String)) {
             LOGGER.error("Cannot update error status: Job ID is missing or not a String in the job map.");
@@ -517,7 +545,6 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
             return; // Return early if UUID is invalid
         }
 
-        // If we reached here, jobId and jobUUID are valid, update status
         updateCtrlplaneJobStatus(
                 jobId, jobUUID, "failure", Map.of("message", "Exception during processing: " + e.getMessage()));
     }

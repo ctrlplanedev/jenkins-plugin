@@ -3,7 +3,9 @@ package io.jenkins.plugins.ctrlplane;
 import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.util.FormValidation;
+import java.util.UUID;
 import jenkins.model.GlobalConfiguration;
+import jenkins.model.Jenkins;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -13,12 +15,7 @@ import org.kohsuke.stapler.QueryParameter;
  */
 @Extension
 public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
-
-    /**
-     * Default API URL
-     */
     public static final String DEFAULT_API_URL = "https://app.ctrlplane.dev";
-
     public static final String DEFAULT_AGENT_ID = "jenkins-agent";
     public static final int DEFAULT_POLLING_INTERVAL_SECONDS = 60;
 
@@ -34,13 +31,11 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
     private int pollingIntervalSeconds;
 
     public CtrlplaneGlobalConfiguration() {
-        // When Jenkins is restarted, load any saved configuration from disk.
         load();
-        // Set defaults only if loaded values are null/blank/zero
         if (StringUtils.isBlank(apiUrl)) {
             apiUrl = DEFAULT_API_URL;
         }
-        if (pollingIntervalSeconds <= 0) { // Set default interval if not loaded or invalid
+        if (pollingIntervalSeconds <= 0) {
             pollingIntervalSeconds = DEFAULT_POLLING_INTERVAL_SECONDS;
         }
     }
@@ -107,7 +102,6 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
 
     /** @return the currently configured polling interval in seconds */
     public int getPollingIntervalSeconds() {
-        // Return default if current value is invalid
         return pollingIntervalSeconds > 0 ? pollingIntervalSeconds : DEFAULT_POLLING_INTERVAL_SECONDS;
     }
 
@@ -117,19 +111,24 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
      */
     @DataBoundSetter
     public void setPollingIntervalSeconds(int pollingIntervalSeconds) {
-        // Ensure a minimum value (e.g., 10 seconds) to prevent overly frequent polling
         this.pollingIntervalSeconds = Math.max(10, pollingIntervalSeconds);
         save();
     }
 
     public FormValidation doCheckApiUrl(@QueryParameter String value) {
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return FormValidation.ok();
+        }
         if (StringUtils.isEmpty(value)) {
-            return FormValidation.warning("API URL is recommended. Defaults to " + DEFAULT_API_URL);
+            return FormValidation.error("API URL cannot be empty.");
         }
         return FormValidation.ok();
     }
 
     public FormValidation doCheckApiKey(@QueryParameter String value) {
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return FormValidation.ok();
+        }
         if (StringUtils.isEmpty(value)) {
             return FormValidation.warning("API Key is required for the agent to poll for jobs.");
         }
@@ -137,24 +136,39 @@ public class CtrlplaneGlobalConfiguration extends GlobalConfiguration {
     }
 
     public FormValidation doCheckAgentId(@QueryParameter String value) {
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return FormValidation.ok();
+        }
         if (StringUtils.isEmpty(value)) {
-            return FormValidation.warning("Agent ID is required for the agent to identify itself.");
+            return FormValidation.warning("Agent ID is recommended for easier identification in Ctrlplane.");
         }
         return FormValidation.ok();
     }
 
     public FormValidation doCheckAgentWorkspaceId(@QueryParameter String value) {
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return FormValidation.ok();
+        }
         if (StringUtils.isEmpty(value)) {
             return FormValidation.warning("Agent Workspace ID is required for the agent to identify itself.");
         }
-        return FormValidation.ok();
+        try {
+            UUID.fromString(value);
+            return FormValidation.ok();
+        } catch (IllegalArgumentException e) {
+            return FormValidation.error(
+                    "Invalid format: Agent Workspace ID must be a valid UUID (e.g., 123e4567-e89b-12d3-a456-426614174000).");
+        }
     }
 
     public FormValidation doCheckPollingIntervalSeconds(@QueryParameter String value) {
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return FormValidation.ok();
+        }
+        if (StringUtils.isEmpty(value)) {
+            return FormValidation.error("Polling Interval cannot be empty.");
+        }
         try {
-            if (StringUtils.isEmpty(value)) {
-                return FormValidation.ok("Using default interval: " + DEFAULT_POLLING_INTERVAL_SECONDS + " seconds.");
-            }
             int interval = Integer.parseInt(value);
             if (interval < 10) {
                 return FormValidation.error("Polling interval must be at least 10 seconds.");
