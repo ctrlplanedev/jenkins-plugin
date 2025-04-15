@@ -460,18 +460,8 @@ public class CtrlplaneJobPoller extends AsyncPeriodicWork {
             return;
         }
 
-        CtrlplaneGlobalConfiguration globalConfig = CtrlplaneGlobalConfiguration.get();
-        String apiUrl = globalConfig.getApiUrl();
-        if (apiUrl == null || apiUrl.isBlank()) {
-            LOGGER.warn(
-                    "Ctrlplane API URL is not configured globally. Cannot pass API_URL parameter to job {}.",
-                    jobInfo.jobId);
-            apiUrl = "";
-        }
-
         StringParameterValue jobIdParam = new StringParameterValue("JOB_ID", jobInfo.jobId);
-        StringParameterValue jobApiUrlParam = new StringParameterValue("API_URL", apiUrl);
-        ParametersAction paramsAction = new ParametersAction(jobIdParam, jobApiUrlParam);
+        ParametersAction paramsAction = new ParametersAction(jobIdParam);
 
         QueueTaskFuture<?> future = jenkinsJob.scheduleBuild2(0, paramsAction);
         if (future == null) {
