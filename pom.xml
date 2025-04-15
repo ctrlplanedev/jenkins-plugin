@@ -11,7 +11,7 @@
 
   <groupId>io.jenkins.plugins</groupId>
   <artifactId>ctrlplane-plugin</artifactId>
-  <version>0.0.1</version>
+  <version>${revision}${changelist}</version>
   <packaging>hpi</packaging>
 
   <name>Ctrlplane Plugin</name>
@@ -43,7 +43,7 @@
   </scm>
 
   <properties>
-    <revision>1.0</revision>
+    <revision>0.0.2</revision>
     <changelist>-SNAPSHOT</changelist>
     <jenkins.baseline>2.492</jenkins.baseline>
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
